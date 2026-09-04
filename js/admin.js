@@ -281,7 +281,11 @@ function openProductForm(product) {
   document.getElementById("p_extraFieldLabel").value = product?.extraField?.fieldLabel || "";
   document.getElementById("p_extraFieldOptions").value = (product?.extraField?.options || []).join(",");
 
-  optionRows = product?.options ? Object.entries(product.options).map(([id, o]) => ({ id, ...o })) : [];
+  optionRows = product?.options
+    ? Object.entries(product.options)
+        .map(([id, o]) => ({ id, ...o }))
+        .sort((a, b) => (typeof a.order === "number" ? a.order : 9999) - (typeof b.order === "number" ? b.order : 9999))
+    : [];
   renderOptionsBox();
 
   applyGiftcardMode(document.getElementById("p_category").value === "giftcards");
@@ -306,19 +310,23 @@ document.getElementById("saveProductBtn")?.addEventListener("click", async () =>
     return;
   }
 
-  const options = {};
   for (const o of optionRows) {
     if (!o.label || o.priceUsd === "" || o.priceUsd === null || o.priceUsd === undefined) {
       alertBox.innerHTML = '<div class="alert alert-error">Completa nombre y precio de todas las opciones</div>';
       return;
     }
+  }
+
+  const options = {};
+  optionRows.forEach((o, index) => {
     options[o.id] = {
       label: String(o.label).trim(),
       priceUsd: parseFloat(o.priceUsd),
+      order: index,
       ...(o.icon ? { icon: String(o.icon).trim() } : {}),
       ...(o.shop2topupItemId ? { shop2topupItemId: String(o.shop2topupItemId).trim() } : {}),
     };
-  }
+  });
 
   const isEvent = document.getElementById("p_isEvent").checked;
   const requiresId = document.getElementById("p_requiresId").checked;

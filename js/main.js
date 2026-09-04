@@ -290,7 +290,10 @@ function renderTrustRow() {
 function renderOptions() {
   const box = document.getElementById("optionSelect");
   const optionsMap = selectedProduct.options || {};
-  box.innerHTML = Object.entries(optionsMap)
+  const entries = Object.entries(optionsMap).sort(
+    (a, b) => (typeof a[1].order === "number" ? a[1].order : 9999) - (typeof b[1].order === "number" ? b[1].order : 9999)
+  );
+  box.innerHTML = entries
     .map(([optId, o]) => {
       const iconHtml = o.icon
         ? `<img src="${resolveImgSrc(o.icon)}" alt="" />`
