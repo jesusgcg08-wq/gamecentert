@@ -208,6 +208,9 @@ function addOptionRow(opt = null) {
       id: `opt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       label: "",
       priceUsd: "",
+      order: optionRows.length
+        ? Math.max(...optionRows.map((o) => (typeof o.order === "number" ? o.order : 0))) + 1
+        : 1,
       icon: "",
       shop2topupItemId: "",
     }
@@ -233,6 +236,7 @@ function renderOptionsBox() {
     <div class="field-row option-row" data-id="${o.id}" style="align-items:flex-end; margin-bottom:8px;">
       <div class="field"><label>Nombre</label><input type="text" class="opt-label" value="${o.label || ""}" placeholder="Ej: 100 diamantes" /></div>
       <div class="field"><label>Precio (USD)</label><input type="number" step="0.01" class="opt-price" value="${o.priceUsd ?? ""}" /></div>
+      <div class="field" style="max-width:90px;"><label>Pos.</label><input type="number" step="1" class="opt-order" value="${typeof o.order === "number" ? o.order : ""}" placeholder="1" /></div>
       <div class="field"><label>Icono (URL, opcional)</label><input type="text" class="opt-icon" value="${o.icon || ""}" /></div>
       <div class="field"><label>Shop2Topup item ID (si es auto)</label><input type="text" class="opt-s2t" value="${o.shop2topupItemId || ""}" /></div>
       <button type="button" class="btn btn-outline btn-sm remove-option-btn">Quitar</button>
@@ -244,6 +248,7 @@ function renderOptionsBox() {
     const id = row.dataset.id;
     row.querySelector(".opt-label").addEventListener("input", (e) => updateOptionField(id, "label", e.target.value));
     row.querySelector(".opt-price").addEventListener("input", (e) => updateOptionField(id, "priceUsd", e.target.value));
+    row.querySelector(".opt-order").addEventListener("input", (e) => updateOptionField(id, "order", e.target.value));
     row.querySelector(".opt-icon").addEventListener("input", (e) => updateOptionField(id, "icon", e.target.value));
     row.querySelector(".opt-s2t").addEventListener("input", (e) => updateOptionField(id, "shop2topupItemId", e.target.value));
     row.querySelector(".remove-option-btn").addEventListener("click", () => removeOptionRow(id));
@@ -334,10 +339,11 @@ document.getElementById("saveProductBtn")?.addEventListener("click", async () =>
 
   const options = {};
   optionRows.forEach((o, index) => {
+    const orderValue = o.order === "" || o.order === null || o.order === undefined ? index : parseInt(o.order, 10);
     options[o.id] = {
       label: String(o.label).trim(),
       priceUsd: parseFloat(o.priceUsd),
-      order: index,
+      order: Number.isFinite(orderValue) ? orderValue : index,
       ...(o.icon ? { icon: String(o.icon).trim() } : {}),
       ...(o.shop2topupItemId ? { shop2topupItemId: String(o.shop2topupItemId).trim() } : {}),
     };
