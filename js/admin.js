@@ -146,6 +146,7 @@ document.querySelectorAll(".admin-nav-item[data-panel]").forEach((item) => {
 // ============================================================================
 let allProductsAdmin = [];
 let optionRows = [];
+let isNewProductForm = true;
 
 // Cuando el producto es Giftcard: no necesita ID de jugador ni zona (son
 // codigos genericos, no atados a una cuenta), y siempre es recarga
@@ -170,12 +171,22 @@ function applyGiftcardMode(isGiftcard) {
   }
 }
 
+function nextPositionForCategory(category) {
+  const positions = allProductsAdmin
+    .filter((p) => p.category === category)
+    .map((p) => (typeof p.position === "number" ? p.position : 0));
+  return positions.length ? Math.max(...positions) + 1 : 1;
+}
+
 function setupProductFormToggles() {
   document.getElementById("p_isEvent")?.addEventListener("change", (e) => {
     document.getElementById("eventDescBox").style.display = e.target.checked ? "block" : "none";
   });
   document.getElementById("p_category")?.addEventListener("change", (e) => {
     applyGiftcardMode(e.target.value === "giftcards");
+    if (isNewProductForm) {
+      document.getElementById("p_position").value = nextPositionForCategory(e.target.value);
+    }
   });
   document.getElementById("p_requiresId")?.addEventListener("change", (e) => {
     const show = e.target.checked;
@@ -250,14 +261,18 @@ document.getElementById("cancelProductBtn")?.addEventListener("click", () => {
 });
 
 function openProductForm(product) {
+  isNewProductForm = !product;
   document.getElementById("productFormAlert").innerHTML = "";
   document.getElementById("productFormTitle").textContent = product ? "Editar producto" : "Nuevo producto";
   document.getElementById("productId").value = product ? product._id : "";
   document.getElementById("p_name").value = product?.name || "";
   document.getElementById("p_category").value = product?.category || "juegos";
   document.getElementById("p_region").value = product?.region || "";
-  document.getElementById("p_position").value =
-    typeof product?.position === "number" ? product.position : "";
+  document.getElementById("p_position").value = product
+    ? typeof product.position === "number"
+      ? product.position
+      : ""
+    : nextPositionForCategory(document.getElementById("p_category").value);
   document.getElementById("p_imageUrl").value = product?.image || "";
   document.getElementById("p_description").value = product?.description || "";
 
