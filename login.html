@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Iniciar sesion — GameCenter</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <div class="brand"><a href="index.html">Game<span>Center</span></a></div>
+  </div>
+</nav>
+
+<div class="form-page">
+  <div class="form-card">
+    <h2>Inicia sesion</h2>
+    <p class="subtitle">Ingresa con tu correo o telefono para continuar.</p>
+
+    <div id="alertBox"></div>
+
+    <form id="loginForm">
+      <div class="field">
+        <label>Correo o telefono</label>
+        <input type="text" id="identifier" required />
+      </div>
+      <div class="field">
+        <label>Contrasena</label>
+        <input type="password" id="password" required />
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Entrar</button>
+    </form>
+
+    <div class="form-footer-link">
+      ¿No tienes cuenta? <a href="register.html" style="color:var(--accent-teal); font-weight:600;">Registrate</a>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/auth.js"></script>
+</body>
+</html>
