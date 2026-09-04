@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GameCenter — Recargas y cuentas al instante</title>
+<meta name="description" content="Recargas de juegos, cuentas de streaming y creditos, gestionadas de forma manual y segura." />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <div class="brand-block">
+      <img src="assets/icongamecenter.png" alt="GameCenter" class="brand-icon" />
+      <div class="brand-text">
+        <div class="brand">Game<span>Center</span></div>
+        <div class="brand-location">Carora - Venezuela</div>
+      </div>
+    </div>
+    <div class="nav-links" id="navAccountArea"></div>
+  </div>
+</nav>
+
+<section class="hero" id="hero">
+  <!-- Los slides se generan con JS a partir de hero1.png, hero2.png, hero3.mp4, hero4.mp4 -->
+  <div class="hero-overlay">
+    <div class="hero-content">
+      <div class="hero-eyebrow">Free Fire · CODM · Roblox · y más · Entrega inmediata</div>
+      <h1 class="hero-title">Recarga tu juego favorito al instante</h1>
+      <p class="hero-sub"></p>
+    </div>
+  </div>
+  <div class="hero-dots" id="heroDots"></div>
+</section>
+
+<div class="container">
+  <div class="events-strip" id="eventsStrip"></div>
+
+  <h2 class="section-title">Catalogo</h2>
+  <div class="category-tabs" id="categoryTabs">
+    <div class="tab active" data-cat="juegos">Juegos</div>
+    <div class="tab" data-cat="recargas">Recargas</div>
+    <div class="tab" data-cat="streaming">Streaming</div>
+    <div class="tab" data-cat="giftcards">Giftcards</div>
+  </div>
+
+  <div class="grid" id="productGrid"></div>
+</div>
+
+<!-- Modal de compra en pasos: 1) elegir recarga  2) metodo de pago  3) pagar y finalizar -->
+<div class="modal-backdrop" id="orderModalBackdrop">
+  <div class="modal">
+    <span class="modal-close" id="closeModal">&times;</span>
+    <h3 id="modalProductName">Producto</h3>
+    <p style="color:var(--text-muted); font-size:0.88rem; margin-top:4px;" id="modalProductRegion"></p>
+    <div class="trust-row" id="modalTrustRow"></div>
+
+    <!-- Paso 1: elegir recarga -->
+    <div class="modal-step active" id="step1">
+      <label style="font-size:0.82rem; color:var(--text-muted); font-weight:500; display:block; margin:14px 0 8px;">Elige tu recarga</label>
+      <div class="options-tiles" id="optionSelect" style="max-height:320px; overflow-y:auto;"></div>
+      <div id="step1Alert"></div>
+      <button class="btn btn-primary btn-full" id="toStep2Btn">Proceder con el pago</button>
+    </div>
+
+    <!-- Paso 2: elegir metodo de pago -->
+    <div class="modal-step" id="step2">
+      <div class="step-nav"><span class="back-link" id="backToStep1">&larr; Volver a elegir recarga</span></div>
+      <label style="font-size:0.82rem; color:var(--text-muted); font-weight:500; display:block; margin:14px 0 4px;">Metodo de pago</label>
+      <div class="pay-methods">
+        <div class="pay-method active" data-method="pago_movil">
+          <img src="assets/logopagomovil.png" alt="" class="pay-method-icon" />
+          Pago Movil
+        </div>
+        <div class="pay-method" data-method="binance">
+          <img src="assets/logobinance.png" alt="" class="pay-method-icon" />
+          Binance Pay
+        </div>
+      </div>
+      <div class="pay-method" data-method="wallet" id="walletPayMethod" style="margin-bottom:16px; display:none;">
+        💰 Wallet <span id="walletPayMethodBalance" style="color:var(--text-muted); font-weight:500;"></span>
+      </div>
+      <div class="total-line">
+        <span>Total a pagar</span>
+        <span id="step2Total">Bs 0,00</span>
+      </div>
+      <button class="btn btn-primary btn-full" id="toStep3Btn">Continuar</button>
+    </div>
+
+    <!-- Paso 3: datos de pago y confirmacion -->
+    <div class="modal-step" id="step3">
+      <div class="step-nav"><span class="back-link" id="backToStep2">&larr; Cambiar metodo de pago</span></div>
+
+      <div id="payDetailsBox" style="margin-top:12px;"></div>
+
+      <div class="field" id="extraFieldContainer" style="display:none;">
+        <label id="extraFieldLabelText">Selecciona una opcion</label>
+        <select id="extraFieldSelect"></select>
+      </div>
+
+      <div class="field" id="gameIdField" style="display:none;">
+        <label id="gameIdLabel">Tu ID en el juego / servicio</label>
+        <div class="coupon-row">
+          <input type="text" id="gameIdInput" placeholder="Ej: 123456789" />
+          <button type="button" class="btn btn-outline btn-sm" id="verifyIdBtn" style="display:none;">Verificar ID</button>
+        </div>
+        <div id="verifyIdMsg" class="coupon-msg"></div>
+      </div>
+
+      <div class="field" id="zoneIdField" style="display:none;">
+        <label id="zoneIdLabel">Tu ID de Zona / Servidor</label>
+        <input type="text" id="zoneIdInput" placeholder="Ej: 1234" />
+      </div>
+
+      <div class="field">
+        <label>Cupon de descuento (opcional)</label>
+        <div class="coupon-row">
+          <input type="text" id="couponInput" placeholder="Ej: CUPON10" />
+          <button type="button" class="btn btn-outline btn-sm" id="verifyCouponBtn" style="display:none;">Verificar cupon</button>
+        </div>
+        <div id="couponMsg" class="coupon-msg"></div>
+      </div>
+
+      <div id="proofFields"></div>
+
+      <div class="total-line">
+        <span>Total</span>
+        <span id="modalTotal">Bs 0,00</span>
+      </div>
+
+      <div id="modalAlert"></div>
+      <button class="btn btn-primary btn-full" id="completeOrderBtn">Finalizar Pago</button>
+    </div>
+
+    <!-- Confirmacion final -->
+    <div class="modal-step" id="stepDone">
+      <div class="alert alert-info" id="stepDoneManualAlert" style="margin-top:14px;">
+        Tu pedido fue enviado y quedo <strong>pendiente de verificacion</strong>. Nuestro equipo confirmara tu
+        pago manualmente por WhatsApp y luego realizara tu recarga. No se descuenta ni se recarga nada
+        hasta que el pago sea aprobado.
+      </div>
+      <div id="stepDoneReceiptBox" style="display:none;"></div>
+      <button class="btn btn-outline btn-full" id="goToDashboardBtn">Ver mi Dashboard</button>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer" id="soporte">
+  <div class="footer-inner">
+    <img src="assets/icongamecenter.png" alt="GameCenter" class="footer-logo" />
+    <div class="footer-support">
+      Soporte inmediato ·
+      <a href="https://wa.me/584264300345" target="_blank" rel="noopener" class="footer-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.39 1.26 4.82L2 22l5.4-1.35a9.9 9.9 0 0 0 4.64 1.18h.01c5.46 0 9.91-4.45 9.91-9.92 0-2.65-1.03-5.14-2.9-7.01A9.86 9.86 0 0 0 12.04 2Zm5.8 14.02c-.24.68-1.4 1.3-1.93 1.35-.5.05-1.13.07-1.83-.12-.42-.11-.96-.3-1.66-.6-2.92-1.26-4.82-4.2-4.97-4.4-.15-.2-1.19-1.58-1.19-3.02s.75-2.15 1.02-2.44c.26-.29.57-.36.76-.36.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.58.81 2 .88 2.14.07.15.12.32.02.51-.1.19-.15.3-.29.47-.15.17-.31.37-.44.5-.15.15-.3.31-.13.6.17.29.75 1.24 1.62 2.01 1.11.99 2.05 1.3 2.34 1.44.29.15.46.13.63-.08.17-.2.72-.84.91-1.13.19-.29.38-.24.63-.14.26.09 1.63.77 1.91.91.29.15.48.22.55.34.07.13.07.73-.17 1.41Z"/></svg>
+        WhatsApp
+      </a>
+    </div>
+    <div class="footer-social-title">Síguenos en redes sociales</div>
+    <div class="footer-social">
+      <a href="https://www.instagram.com/game.centercarora?igsh=b204aDNsNzVpcGU0" target="_blank" rel="noopener" class="social-icon" aria-label="Instagram">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/></svg>
+      </a>
+      <a href="https://www.tiktok.com/@gamecenter2024?_r=1&_t=ZS-96xVWBRHlnp" target="_blank" rel="noopener" class="social-icon" aria-label="TikTok">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.6 2h-3.3v13.7c0 1.5-1.2 2.7-2.7 2.7a2.7 2.7 0 0 1-2.7-2.7 2.7 2.7 0 0 1 2.7-2.7c.28 0 .55.04.8.12V9.7a6 6 0 0 0-.8-.05A6 6 0 0 0 4.6 15.7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V8.9a8.2 8.2 0 0 0 4.4 1.27V6.87A4.85 4.85 0 0 1 16.6 2Z"/></svg>
+      </a>
+    </div>
+    <div class="footer-copy">© 2026 GameCenter · Developed By Zerkov 🧑‍💻</div>
+  </div>
+</footer>
+
+<a href="https://wa.me/" target="_blank" rel="noopener" id="floatingWhatsappBtn" class="wa-float-btn" aria-label="Escribinos por WhatsApp">
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.39 1.26 4.82L2 22l5.4-1.35a9.9 9.9 0 0 0 4.64 1.18h.01c5.46 0 9.91-4.45 9.91-9.92 0-2.65-1.03-5.14-2.9-7.01A9.86 9.86 0 0 0 12.04 2Zm5.8 14.02c-.24.68-1.4 1.3-1.93 1.35-.5.05-1.13.07-1.83-.12-.42-.11-.96-.3-1.66-.6-2.92-1.26-4.82-4.2-4.97-4.4-.15-.2-1.19-1.58-1.19-3.02s.75-2.15 1.02-2.44c.26-.29.57-.36.76-.36.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.58.81 2 .88 2.14.07.15.12.32.02.51-.1.19-.15.3-.29.47-.15.17-.31.37-.44.5-.15.15-.3.31-.13.6.17.29.75 1.24 1.62 2.01 1.11.99 2.05 1.3 2.34 1.44.29.15.46.13.63-.08.17-.2.72-.84.91-1.13.19-.29.38-.24.63-.14.26.09 1.63.77 1.91.91.29.15.48.22.55.34.07.13.07.73-.17 1.41Z"/></svg>
+</a>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

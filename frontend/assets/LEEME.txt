@@ -1,0 +1,10 @@
+Coloca aqui estos archivos (mismos nombres, en minusculas):
+
+hero1.png
+hero2.png
+hero3.mp4
+hero4.mp4
+binanceqr.png   (captura o imagen del QR de tu Binance Pay)
+
+El carrusel del hero y el boton "Ver QR" ya estan programados para
+buscarlos automaticamente en esta carpeta (frontend/assets/).

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Panel de administracion — GameCenter</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- Pantalla de acceso con clave (separado del login de clientes) -->
+<div class="form-page" id="accessGate">
+  <div class="form-card">
+    <h2>Acceso administrador</h2>
+    <p class="subtitle">Ingresa con tu cuenta de administrador.</p>
+    <div id="accessAlert"></div>
+    <form id="accessForm">
+      <div class="field">
+        <label>Correo</label>
+        <input type="email" id="accessEmail" required autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>Contrasena</label>
+        <input type="password" id="accessKey" required autocomplete="off" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Entrar</button>
+    </form>
+  </div>
+</div>
+
+<!-- Panel real, oculto hasta validar la clave -->
+<div class="admin-shell" id="adminShell" style="display:none;">
+  <aside class="admin-sidebar">
+    <div class="brand">Game<span>Center</span></div>
+    <div class="admin-nav-item active" data-panel="productos">Productos</div>
+    <div class="admin-nav-item" data-panel="cupones">Cupones</div>
+    <div class="admin-nav-item" data-panel="pedidos">Pedidos</div>
+    <div class="admin-nav-item" data-panel="config">Configuracion</div>
+    <div class="admin-nav-item" id="adminLogout" style="margin-top:20px; color:var(--danger);">Cerrar sesion</div>
+  </aside>
+
+  <main class="admin-main">
+
+    <!-- PRODUCTOS -->
+    <section class="admin-panel active" id="panel-productos">
+      <div class="panel-header">
+        <h2 class="section-title">Productos</h2>
+        <button class="btn btn-primary btn-sm" id="newProductBtn">Nuevo producto</button>
+      </div>
+      <div class="table-scroll">
+      <table class="table">
+        <thead><tr><th>Imagen</th><th>Nombre</th><th>Categoria</th><th>Region</th><th>Pos.</th><th>Opciones</th><th>Evento</th><th>Requiere ID</th><th></th></tr></thead>
+        <tbody id="productsTableBody"></tbody>
+      </table>
+      </div>
+
+      <div class="card-form" id="productFormBox" style="display:none;">
+        <h3 id="productFormTitle">Nuevo producto</h3>
+        <input type="hidden" id="productId" />
+        <div class="field">
+          <label>Nombre del producto</label>
+          <input type="text" id="p_name" required />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Categoria</label>
+            <select id="p_category">
+              <option value="juegos">Juegos</option>
+              <option value="recargas">Recargas</option>
+              <option value="streaming">Streaming</option>
+              <option value="giftcards">Giftcards</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Region</label>
+            <input type="text" id="p_region" placeholder="Ej: Latam, Global, Venezuela" />
+          </div>
+        </div>
+
+        <div class="field" style="max-width:220px;">
+          <label>Posicion en el catalogo</label>
+          <input type="number" id="p_position" min="0" step="1" placeholder="Ej: 1" />
+          <p style="color:var(--text-muted); font-size:0.78rem; margin-top:4px;">
+            Numero mas bajo = sale primero dentro de su categoria. No aplica a eventos especiales, esos siempre salen de primero.
+          </p>
+        </div>
+
+        <div class="field">
+          <label>Imagen del producto (URL)</label>
+          <input type="text" id="p_imageUrl" placeholder="https://ejemplo.com/imagen.png" required />
+        </div>
+
+        <div class="field">
+          <label>Descripcion (opcional)</label>
+          <textarea id="p_description" rows="2"></textarea>
+        </div>
+
+        <label style="font-size:0.82rem; color:var(--text-muted); font-weight:500;">Opciones de recarga (con icono opcional)</label>
+        <div id="optionsBox"></div>
+        <button type="button" class="btn btn-outline btn-sm" id="addOptionBtn" style="margin:8px 0 20px;">+ Agregar opcion</button>
+
+        <div class="toggle-row">
+          <input type="checkbox" id="p_isEvent" />
+          <label for="p_isEvent" style="margin:0;">Es un evento especial (aparece destacado en la pagina principal)</label>
+        </div>
+        <div class="field" id="eventDescBox" style="display:none;">
+          <label>Descripcion breve del evento</label>
+          <input type="text" id="p_eventDescription" placeholder="Ej: Doble de diamantes por tiempo limitado" />
+        </div>
+
+        <div id="giftcardNotice" class="alert alert-info" style="display:none; margin-bottom:14px;">
+          🎁 Las giftcards no necesitan ID de jugador ni servidor — solo el codigo se le entrega al cliente
+          automaticamente cuando Shop2Topup confirma la compra.
+        </div>
+
+        <div class="toggle-row" id="requiresIdToggleRow">
+          <input type="checkbox" id="p_requiresId" />
+          <label for="p_requiresId" style="margin:0;">Requiere ID? (el cliente debera ingresar su ID de juego/cuenta al comprar)</label>
+        </div>
+        <div class="field" id="requiresIdLabelBox" style="display:none;">
+          <label>Texto del campo (que vera el cliente)</label>
+          <input type="text" id="p_requiresIdLabel" placeholder="Ej: Tu ID de jugador (Free Fire)" />
+        </div>
+        <div class="field" id="subCategoryIdBox" style="display:none;">
+          <label>Shop2Topup Sub Category ID</label>
+          <input type="number" id="p_subCategoryId" placeholder="Ej: 732" />
+        </div>
+
+        <div class="toggle-row" id="requiresZoneIdToggleRow">
+          <input type="checkbox" id="p_requiresZoneId" />
+          <label for="p_requiresZoneId" style="margin:0;">Requiere Zona ID? (ademas del ID, el cliente debera ingresar su zona/servidor)</label>
+        </div>
+        <div class="field" id="requiresZoneIdLabelBox" style="display:none;">
+          <label>Texto del campo de Zona ID (que vera el cliente)</label>
+          <input type="text" id="p_requiresZoneIdLabel" placeholder="Ej: Tu ID de Zona (Mobile Legends)" />
+        </div>
+
+        <div class="toggle-row" id="autoRechargeToggleRow">
+          <input type="checkbox" id="p_autoRecharge" />
+          <label for="p_autoRecharge" style="margin:0;">Es recarga automatica? (al aprobar el pedido se ejecuta sola en Shop2Topup)</label>
+        </div>
+        <div class="field" id="extraFieldBox" style="display:none;">
+          <label>Campo extra requerido (opcional, ej. servidor)</label>
+          <div class="field-row">
+            <input type="text" id="p_extraFieldName" placeholder="Nombre interno (ej: server)" />
+            <input type="text" id="p_extraFieldLabel" placeholder="Texto para el cliente (ej: Selecciona tu servidor)" />
+          </div>
+          <input type="text" id="p_extraFieldOptions" placeholder="Opciones separadas por coma (ej: LATAM,Global)" style="margin-top:8px;" />
+        </div>
+
+        <div id="productFormAlert"></div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-primary" id="saveProductBtn">Guardar producto</button>
+          <button class="btn btn-outline" id="cancelProductBtn">Cancelar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CUPONES -->
+    <section class="admin-panel" id="panel-cupones">
+      <h2 class="section-title">Cupones</h2>
+      <div class="card-form">
+        <div class="field-row">
+          <div class="field">
+            <label>Codigo</label>
+            <input type="text" id="c_code" placeholder="Ej: BIENVENIDA10" />
+          </div>
+          <div class="field">
+            <label>Descuento (%)</label>
+            <input type="number" id="c_discount" min="1" max="100" />
+          </div>
+          <div class="field">
+            <label>Usos por cuenta</label>
+            <input type="number" id="c_usesPerAccount" min="1" value="1" />
+          </div>
+        </div>
+        <div id="couponAlert"></div>
+        <button class="btn btn-primary" id="createCouponBtn">Crear cupon</button>
+      </div>
+      <div class="table-scroll">
+      <table class="table">
+        <thead><tr><th>Codigo</th><th>Descuento</th><th>Usos por cuenta</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="couponsTableBody"></tbody>
+      </table>
+      </div>
+    </section>
+
+    <!-- PEDIDOS -->
+    <section class="admin-panel" id="panel-pedidos">
+      <h2 class="section-title">Pedidos</h2>
+      <p style="color:var(--text-muted); font-size:0.85rem; margin-top:-10px;">
+        Ningun pedido se marca como pagado automaticamente. Revisa el comprobante y cambia el estado
+        a <strong>Completado</strong> (si ya recargaste) o <strong>Rechazado</strong> (si el pago no es valido).
+      </p>
+      <div class="table-scroll">
+      <table class="table">
+        <thead><tr><th>Cliente</th><th>Producto</th><th>ID del jugador</th><th>Pago</th><th>Comprobante</th><th>Total</th><th>Estado</th></tr></thead>
+        <tbody id="ordersTableBody"></tbody>
+      </table>
+      </div>
+    </section>
+
+    <!-- CONFIGURACION -->
+    <section class="admin-panel" id="panel-config">
+      <h2 class="section-title">Configuracion</h2>
+      <div class="card-form">
+        <h3 style="margin-bottom:14px;">Tasa de cambio</h3>
+        <div class="field" style="max-width:260px;">
+          <label>Bolivares por 1 USD</label>
+          <input type="number" step="0.01" id="s_rate" />
+        </div>
+
+        <h3 style="margin:20px 0 14px;">Pago Movil</h3>
+        <div class="field-row">
+          <div class="field"><label>C.I.</label><input type="text" id="s_ci" /></div>
+          <div class="field"><label>Telefono</label><input type="text" id="s_phone" /></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Banco</label><input type="text" id="s_bank" /></div>
+          <div class="field"><label>Nro. de cuenta</label><input type="text" id="s_account" /></div>
+        </div>
+        <div class="field"><label>Titular</label><input type="text" id="s_holder" /></div>
+
+        <h3 style="margin:20px 0 14px;">Binance Pay</h3>
+        <div class="field"><label>Binance ID</label><input type="text" id="s_binanceId" /></div>
+        <p style="color:var(--text-muted); font-size:0.82rem; margin-top:-8px;">El QR se toma automaticamente del archivo assets/binanceqr.png</p>
+
+        <h3 style="margin:20px 0 14px;">WhatsApp</h3>
+        <div class="field" style="max-width:260px;">
+          <label>Numero (con codigo de pais, sin +)</label>
+          <input type="text" id="s_whatsapp" />
+        </div>
+
+        <div id="settingsAlert"></div>
+        <button class="btn btn-primary" id="saveSettingsBtn">Guardar configuracion</button>
+      </div>
+    </section>
+
+    <p class="footer-note">Esta configuracion no se muestra en la pagina principal, solo se usa internamente durante el pago.</p>
+  </main>
+</div>
+
+<!-- Modal de detalle de pedido -->
+<div class="modal-backdrop" id="orderDetailBackdrop">
+  <div class="modal">
+    <span class="modal-close" id="closeOrderDetail">&times;</span>
+    <h3>Detalle del pedido</h3>
+    <div id="orderDetailBody" style="margin-top:12px;"></div>
+    <div id="orderDetailActions" style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;"></div>
+  </div>
+</div>
+
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>

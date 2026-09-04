@@ -1,0 +1,1151 @@
+/* ======================================================
+   GameCenter — Variables y base
+   Paleta: negro profundo + neon violeta/teal, tipografia
+   Sora (titulos) + Inter (texto), sin look "futurista" duro.
+====================================================== */
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap");
+
+:root {
+  --bg-base: #0a0c10;
+  --bg-surface: #12151b;
+  --bg-surface-2: #1a1e26;
+  --border-soft: #262b35;
+
+  --accent-violet: #8b5cf6;
+  --accent-violet-soft: rgba(139, 92, 246, 0.15);
+  --accent-teal: #2dd4bf;
+  --accent-teal-soft: rgba(45, 212, 191, 0.15);
+
+  --warning: #fbbf24;
+  --warning-soft: rgba(251, 191, 36, 0.15);
+  --success: #34d399;
+  --success-soft: rgba(52, 211, 153, 0.15);
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.15);
+
+  --text-primary: #f2f3f7;
+  --text-muted: #9aa1ae;
+
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow-glow: 0 0 0 1px var(--border-soft), 0 12px 30px -10px rgba(139, 92, 246, 0.25);
+}
+
+* { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: "Inter", sans-serif;
+  line-height: 1.5;
+  /* Evita que cualquier elemento un poco mas ancho que la pantalla
+     (tablas, imagenes, etc) genere scroll horizontal fantasma en movil */
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+  font-family: "Sora", sans-serif;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+a { color: inherit; text-decoration: none; }
+
+.container {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ---------- Navbar ---------- */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(10, 12, 16, 0.85);   /* 👈 esto es el fondo oscuro */
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-soft);
+}
+.navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  max-width: 1180px;
+  margin: 0 auto;
+  gap: 12px;
+}
+.brand {
+  font-family: "Sora", sans-serif;
+  font-weight: 800;
+  font-size: 1.35rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.brand span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.brand span {
+  color: var(--text-primary);
+}
+.brand-block { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand-text { min-width: 0; overflow: hidden; }
+.brand-icon { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; flex-shrink: 0; }
+.brand-location { font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; font-weight: 500; }
+.nav-links { display: flex; gap: 24px; align-items: center; flex-shrink: 0; }
+.nav-links a {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: color .15s ease;
+}
+.nav-links a:hover, .nav-links a.active { color: var(--text-primary); }
+
+/* ---------- Fila de confianza en el modal de compra (Entrega / Pago / Soporte) ---------- */
+.trust-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.trust-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.trust-item svg { flex-shrink: 0; color: var(--accent-teal); }
+
+/* ---------- Boton flotante de WhatsApp ---------- */
+.wa-float-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #25D366;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 55;
+  transition: transform .15s ease;
+}
+.wa-float-btn:hover { transform: scale(1.06); }
+@media (max-width: 720px) {
+  .wa-float-btn { width: 50px; height: 50px; right: 14px; bottom: 14px; }
+  .trust-item { font-size: 0.7rem; padding: 5px 10px; }
+}
+
+/* ---------- Selector de moneda (USD / Bs) ---------- */
+.currency-toggle { position: relative; }
+.currency-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-soft);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.currency-toggle-btn:hover { border-color: var(--accent-violet); }
+.currency-toggle-btn svg { transition: transform .15s ease; flex-shrink: 0; }
+.currency-toggle.open .currency-toggle-btn svg { transform: rotate(180deg); }
+.currency-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 6px;
+  min-width: 190px;
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.5);
+  display: none;
+  z-index: 60;
+}
+.currency-toggle.open .currency-dropdown { display: block; }
+.currency-option {
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.currency-option:hover { background: var(--bg-surface-2); color: var(--text-primary); }
+.currency-option.active { color: var(--accent-teal); font-weight: 600; }
+
+/* ---------- Cuadro de cuenta (avatar + nombre + saldo) ---------- */
+.account-box { position: relative; }
+.account-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 5px 10px 5px 5px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  transition: border-color .15s ease, background .15s ease;
+}
+.account-trigger:hover { border-color: var(--border-soft); background: var(--bg-surface-2); }
+.account-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: linear-gradient(120deg, var(--accent-violet), var(--accent-teal));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Sora", sans-serif;
+  font-weight: 700;
+  color: #0a0c10;
+  font-size: 0.88rem;
+}
+.account-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.account-text { line-height: 1.25; min-width: 0; }
+.account-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+.account-balance { font-size: 0.76rem; color: var(--accent-teal); font-weight: 600; }
+.account-trigger > svg { color: var(--text-muted); flex-shrink: 0; transition: transform .15s ease; }
+.account-box.open .account-trigger > svg { transform: rotate(180deg); }
+.account-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 8px;
+  min-width: 200px;
+  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.55);
+  display: none;
+  z-index: 60;
+}
+.account-box.open .account-dropdown { display: block; }
+.account-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: 9px;
+  font-size: 0.87rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.account-dropdown-item:hover { background: var(--bg-surface-2); }
+.account-dropdown-item.active { color: var(--accent-teal); }
+.account-dropdown-item.danger { color: var(--danger); }
+
+/* ---------- Vouchers de giftcard (dashboard) ---------- */
+.voucher-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+
+.voucher-card {
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-surface-2);
+}
+
+.voucher-ready {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-left: 3px solid var(--accent-teal);
+}
+.voucher-ready-label { font-size: 0.88rem; font-weight: 700; }
+
+.voucher-revealed {
+  border-left: 3px solid var(--accent-violet);
+  box-shadow: var(--shadow-glow);
+}
+.voucher-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.voucher-code-label {
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.voucher-code-value {
+  font-family: "Sora", sans-serif;
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: 0.03em;
+  word-break: break-all;
+  color: var(--accent-teal);
+  margin-top: 2px;
+}
+.voucher-code-meta { font-size: 0.74rem; color: var(--text-muted); margin-top: 4px; }
+
+.voucher-confirm {
+  border-left: 3px solid var(--danger);
+  background: var(--danger-soft);
+}
+.voucher-confirm-title { font-size: 0.86rem; font-weight: 700; margin-bottom: 4px; }
+.voucher-confirm-text { font-size: 0.8rem; color: var(--text-muted); line-height: 1.45; }
+.voucher-confirm-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+/* ---------- Wallet: saldo grande + boton depositar ---------- */
+.wallet-hero {
+  background: linear-gradient(135deg, var(--accent-violet-soft), var(--accent-teal-soft));
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 36px 28px;
+  margin: 30px 0 30px;
+  text-align: center;
+}
+.wallet-hero .label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.wallet-hero .amount {
+  font-family: "Sora", sans-serif;
+  font-weight: 800;
+  font-size: 2.6rem;
+  margin-top: 6px;
+}
+.wallet-hero .amount-alt { color: var(--text-muted); font-size: 0.95rem; margin-top: 2px; }
+.wallet-hero .btn { margin-top: 22px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  min-height: 42px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary {
+  background: linear-gradient(120deg, var(--accent-violet), var(--accent-teal));
+  color: #0a0c10;
+}
+.btn-primary:hover { box-shadow: 0 0 20px rgba(139, 92, 246, 0.45); }
+.btn-outline {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-soft);
+}
+.btn-outline:hover { border-color: var(--accent-violet); }
+.btn-danger { background: var(--danger-soft); color: var(--danger); }
+.btn-full { width: 100%; }
+.btn-sm { padding: 7px 12px; font-size: 0.8rem; min-height: 36px; }
+
+/* ---------- Spinner circular (botones en estado "cargando") ---------- */
+.btn-spinner {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 2px solid rgba(10, 12, 16, 0.35);
+  border-top-color: #0a0c10;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.btn-outline .btn-spinner, .btn-danger .btn-spinner {
+  border: 2px solid rgba(242, 243, 247, 0.25);
+  border-top-color: var(--text-primary);
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- Hero (carrusel imagen/video) ---------- */
+.hero {
+  position: relative;
+  height: 68vh;
+  min-height: 420px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-soft);
+}
+.hero-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+.hero-slide.active { opacity: 1; }
+.hero-slide img, .hero-slide video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.55) saturate(1.1);
+}
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 48px 24px 56px;
+  background: linear-gradient(0deg, rgba(10,12,16,0.95) 10%, rgba(10,12,16,0.2) 60%, transparent 100%);
+}
+.hero-content { max-width: 1180px; margin: 0 auto; width: 100%; }
+.hero-eyebrow {
+  color: var(--accent-teal);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+.hero-title {
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  font-weight: 800;
+  max-width: 720px;
+}
+.hero-sub {
+  color: var(--text-muted);
+  max-width: 560px;
+  margin-top: 14px;
+  font-size: 1.05rem;
+}
+.hero-dots {
+  position: absolute;
+  bottom: 20px;
+  right: 24px;
+  display: flex;
+  gap: 8px;
+}
+.hero-dot {
+  width: 26px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.25);
+  cursor: pointer;
+  transition: background .2s ease;
+}
+.hero-dot.active { background: var(--accent-teal); }
+
+/* ---------- Eventos especiales ---------- */
+.events-strip {
+  padding: 20px 0;
+}
+.event-card {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  background: linear-gradient(120deg, var(--accent-violet-soft), var(--accent-teal-soft));
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  margin-bottom: 12px;
+}
+.event-tag {
+  background: var(--accent-violet);
+  color: #0a0c10;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.event-text strong { font-family: "Sora", sans-serif; }
+.event-text p { margin: 2px 0 0; color: var(--text-muted); font-size: 0.9rem; }
+
+/* ---------- Catalogo ---------- */
+.section-title {
+  font-size: 1.6rem;
+  margin: 40px 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-title::before {
+  content: "";
+  width: 6px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-violet), var(--accent-teal));
+}
+.category-tabs { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+.tab {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+.tab.active {
+  color: #0a0c10;
+  background: linear-gradient(120deg, var(--accent-violet), var(--accent-teal));
+  border-color: transparent;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+  padding-bottom: 40px;
+}
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.card:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent-violet);
+  box-shadow: var(--shadow-glow);
+}
+/* Producto en Evento Especial: se destaca directamente en su propia
+   tarjeta (va primero en el catalogo) en vez de un banner aparte arriba. */
+.card-featured {
+  border-color: var(--accent-violet);
+  box-shadow: 0 0 0 1px var(--accent-violet), 0 8px 24px -8px rgba(124, 58, 237, 0.45);
+}
+.card img { width: 100%; height: 150px; object-fit: cover; display: block; }
+.card-body { padding: 14px 16px 18px; }
+.card-region {
+  font-size: 0.7rem;
+  color: var(--accent-teal);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.card-name { font-size: 1.02rem; margin-top: 4px; }
+.card-price { color: var(--text-muted); font-size: 0.85rem; margin-top: 6px; }
+.badge-event {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.68rem;
+  background: var(--accent-violet-soft);
+  color: var(--accent-violet);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+/* ---------- Formularios (login/registro/checkout) ---------- */
+.form-page {
+  min-height: calc(100vh - 70px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+.form-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 36px;
+  width: 100%;
+  max-width: 440px;
+}
+.form-card h2 { font-size: 1.5rem; margin-bottom: 6px; }
+.form-card .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
+.field { margin-bottom: 16px; min-width: 0; }
+.field label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+.field input, .field select, .field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  font-family: "Inter", sans-serif;
+  font-size: 0.92rem;
+  /* min 16px de font-size real evitaria el zoom automatico de iOS, pero
+     ya usamos 0.92rem (~14.7px); iOS puede hacer zoom al enfocar. Lo
+     forzamos a 16px SOLO en pantallas chicas mas abajo (media query). */
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none;
+  border-color: var(--accent-violet);
+}
+.field-row { display: flex; gap: 10px; }
+.field-row .field { flex: 1; min-width: 0; }
+.form-footer-link { text-align: center; margin-top: 18px; font-size: 0.88rem; color: var(--text-muted); }
+.alert {
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  margin-bottom: 16px;
+}
+.alert-success { background: var(--success-soft); color: var(--success); }
+.alert-error { background: var(--danger-soft); color: var(--danger); }
+.alert-info { background: var(--accent-teal-soft); color: var(--accent-teal); }
+
+/* ---------- Pedidos / dashboard ---------- */
+#profileBox .row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--border-soft);
+  gap: 12px;
+}
+#profileBox .row:last-child { border-bottom: none; }
+
+.order-list { display: flex; flex-direction: column; gap: 14px; }
+.order-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.order-info strong { display: block; font-family: "Sora", sans-serif; }
+.order-meta { color: var(--text-muted); font-size: 0.82rem; margin-top: 4px; }
+.status-pill {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  display: inline-block;
+}
+.status-pendiente, .status-recibido, .status-en_proceso { background: var(--warning-soft); color: var(--warning); }
+.status-completado { background: var(--success-soft); color: var(--success); }
+.status-rechazado { background: var(--danger-soft); color: var(--danger); }
+
+/* ---------- Footer con soporte y redes sociales ---------- */
+.site-footer {
+  border-top: 1px solid var(--border-soft);
+  margin-top: 60px;
+  padding: 44px 24px 30px;
+}
+.footer-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+}
+.footer-logo { width: 68px; height: 68px; border-radius: 18px; object-fit: cover; margin-bottom: 8px; }
+.footer-support { font-size: 0.95rem; color: var(--text-muted); }
+.footer-link {
+  color: var(--accent-teal);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.footer-link:hover { opacity: 0.85; }
+.footer-social-title { font-size: 0.82rem; color: var(--text-muted); margin-top: 18px; }
+.footer-social { display: flex; gap: 14px; margin-top: 10px; }
+.social-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  transition: border-color .15s ease, color .15s ease, transform .15s ease;
+}
+.social-icon:hover { border-color: var(--accent-violet); color: var(--accent-violet); transform: translateY(-2px); }
+.footer-copy { font-size: 0.75rem; color: var(--text-muted); margin-top: 26px; }
+
+/* ---------- Mensaje de verificacion de cupon ---------- */
+.coupon-row { display: flex; gap: 8px; }
+.coupon-row input { flex: 1; min-width: 0; }
+.coupon-msg { margin-top: 6px; font-size: 0.8rem; }
+.coupon-msg.ok { color: var(--success); }
+.coupon-msg.warn { color: var(--warning); }
+.coupon-msg.err { color: var(--danger); }
+
+/* ---------- Perfil del cliente en el dashboard ---------- */
+.profile-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.profile-field .label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.profile-field .value { font-family: "Sora", sans-serif; font-weight: 600; margin-top: 2px; }
+.order-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px 20px;
+  margin-top: 10px;
+  font-size: 0.82rem;
+}
+.order-detail-grid .label { color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.order-detail-grid .value { margin-top: 2px; }
+
+/* ---------- Boton "Elige tu recarga" en la card ---------- */
+.card-choose-btn {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 0 16px 16px;
+  padding: 9px;
+  border-radius: 9px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.84rem;
+  cursor: pointer;
+  text-align: center;
+}
+.card-choose-btn:hover { border-color: var(--accent-violet); color: var(--accent-violet); }
+
+/* ---------- Opciones de recarga con icono ---------- */
+.option-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+  background: var(--bg-surface-2);
+}
+.option-tile.active {
+  border-color: var(--accent-violet);
+  background: var(--accent-violet-soft);
+}
+.option-tile img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: var(--bg-base);
+  flex-shrink: 0;
+}
+.option-tile .opt-icon-fallback {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: linear-gradient(120deg, var(--accent-violet), var(--accent-teal));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0a0c10;
+  flex-shrink: 0;
+}
+.option-tile .opt-text { min-width: 0; }
+.option-tile .opt-text strong { display: block; font-size: 0.88rem; }
+.option-tile .opt-text span { color: var(--text-muted); font-size: 0.78rem; }
+.options-tiles { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 22px; }
+
+/* ---------- Modal en pasos ---------- */
+.step-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; color: var(--text-muted); font-size: 0.8rem; }
+.step-nav .back-link { cursor: pointer; color: var(--accent-teal); font-weight: 600; }
+.modal-step { display: none; }
+.modal-step.active { display: block; }
+
+/* ---------- Boton copiar por dato ---------- */
+.pay-details .row { align-items: center; }
+.row-value-copy { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.copy-field-btn {
+  border: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--accent-teal);
+  font-size: 0.72rem;
+  padding: 5px 10px;
+  min-height: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.copy-field-btn:hover { border-color: var(--accent-teal); }
+
+/* ---------- Modal ---------- */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(5,6,9,0.75);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 30px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-close {
+  float: right;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 1.4rem;
+  padding: 4px 8px;
+  line-height: 1;
+}
+.pay-methods { display: flex; gap: 10px; margin: 16px 0; }
+.pay-method {
+  flex: 1;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+.pay-method-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.pay-method.active {
+  border-color: var(--accent-violet);
+  color: var(--text-primary);
+  background: var(--accent-violet-soft);
+}
+.pay-details {
+  background: var(--bg-surface-2);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 0.88rem;
+  margin-bottom: 16px;
+}
+.pay-details .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--border-soft); gap: 10px; }
+.pay-details .row:last-child { border-bottom: none; }
+.pay-details .row span:first-child { color: var(--text-muted); flex-shrink: 0; }
+.copy-btn { cursor: pointer; color: var(--accent-teal); font-size: 0.78rem; }
+.option-select { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 20px; }
+.option-chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.option-chip.active {
+  background: linear-gradient(120deg, var(--accent-violet), var(--accent-teal));
+  color: #0a0c10;
+  border-color: transparent;
+  font-weight: 600;
+}
+.total-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 16px 0;
+  font-family: "Sora", sans-serif;
+}
+
+/* ---------- Admin ---------- */
+.admin-shell { display: flex; min-height: 100vh; }
+.admin-sidebar {
+  width: 230px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-soft);
+  padding: 24px 16px;
+  flex-shrink: 0;
+}
+.admin-sidebar .brand { margin-bottom: 30px; padding: 0 8px; }
+.admin-nav-item {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+.admin-nav-item.active, .admin-nav-item:hover { background: var(--bg-surface-2); color: var(--text-primary); }
+.admin-main { flex: 1; padding: 32px; max-width: 1100px; min-width: 0; }
+.admin-panel { display: none; }
+.admin-panel.active { display: block; }
+.table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  margin-top: 16px;
+  font-size: 0.88rem;
+}
+.table th, .table td {
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+.table th { color: var(--text-muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; white-space: nowrap; }
+.table img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; }
+.panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 12px; flex-wrap: wrap; }
+.card-form {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  margin-top: 18px;
+}
+.option-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.option-row input { flex: 1; min-width: 120px; }
+.toggle-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.footer-note { color: var(--text-muted); font-size: 0.78rem; margin-top: 30px; text-align: center; padding-bottom: 30px; }
+
+/* ======================================================
+   Responsive — Tablets (≤900px)
+====================================================== */
+@media (max-width: 900px) {
+  .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* ======================================================
+   Responsive — Moviles (≤720px)
+====================================================== */
+@media (max-width: 720px) {
+  .admin-shell { flex-direction: column; }
+  .admin-sidebar {
+    width: 100%;
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px;
+    padding: 14px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+  .admin-sidebar .brand { display: none; }
+  .admin-nav-item { flex-shrink: 0; padding: 9px 14px; margin-bottom: 0; }
+  .admin-main { padding: 18px 16px 40px; }
+
+  .container { padding: 0 16px; }
+
+  /* Navbar mas compacta */
+  .navbar-inner { padding: 12px 16px; gap: 8px; }
+  .brand { font-size: 1.1rem; }
+  .brand-icon { width: 34px; height: 34px; border-radius: 9px; }
+  .brand-location { display: none; }
+  .nav-links { gap: 8px; flex-wrap: nowrap; overflow: hidden; }
+  .nav-links a { font-size: 0.78rem; white-space: nowrap; }
+  /* "Soporte" en el navbar es lo que mas choca en pantallas chicas -- se
+     oculta en telefono (se puede llegar a soporte desde el footer o el
+     boton flotante de WhatsApp). Cubre href="soporte.html", "#soporte",
+     o cualquier variante con "soporte" en el link, y tambien la clase
+     "nav-support-link" si la agregas al <a> en el HTML. */
+  .nav-links a[href*="soporte" i],
+  .nav-links a.nav-support-link {
+    display: none;
+  }
+  .currency-toggle-btn { padding: 7px 9px; font-size: 0.72rem; }
+  .currency-dropdown { min-width: 170px; position: fixed; top: 68px; left: 50%; right: auto; transform: translateX(-50%); }
+  .account-name { display: none; }
+  .account-trigger { padding: 4px; gap: 6px; }
+  .account-trigger > svg { display: none; }
+  /* El dropdown se ancla al viewport (no al contenedor) para que nunca
+     quede fuera de la pantalla visible en telefonos en vertical. */
+  .account-dropdown { position: fixed; top: 68px; right: 16px; left: auto; }
+  .voucher-code-value { font-size: 1rem; }
+  .wallet-hero { padding: 26px 18px; margin: 20px 0 24px; }
+  .wallet-hero .amount { font-size: 2rem; }
+
+  /* Hero mas bajo, texto mas chico */
+  .hero { height: 56vh; min-height: 320px; }
+  .hero-overlay { padding: 24px 16px 28px; }
+  .hero-eyebrow { font-size: 0.68rem; margin-bottom: 6px; }
+  .hero-title { font-size: clamp(1.5rem, 7vw, 2.2rem); max-width: 100%; }
+  .hero-sub { font-size: 0.88rem; margin-top: 8px; }
+  .hero-dots { right: 16px; bottom: 12px; }
+  .hero-dot { width: 18px; }
+
+  /* Eventos destacados */
+  .event-card { padding: 14px 16px; gap: 12px; }
+  .event-text p { font-size: 0.84rem; }
+
+  /* Catalogo: grid mas ajustado al ancho real de un telefono */
+  .section-title { font-size: 1.25rem; margin: 24px 0 14px; }
+  .category-tabs { gap: 8px; margin-bottom: 18px; }
+  .tab { padding: 7px 13px; font-size: 0.8rem; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-bottom: 30px; }
+  .card img { height: 100px; }
+  .card-body { padding: 10px 12px 14px; }
+  .card-name {
+    font-size: 0.86rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-region { font-size: 0.62rem; }
+  .card-price { font-size: 0.76rem; margin-top: 4px; }
+  .card-choose-btn { font-size: 0.76rem; padding: 9px; margin: 0 10px 10px; width: calc(100% - 20px); }
+  .badge-event { font-size: 0.62rem; }
+
+  /* Modal de compra ocupa mejor la pantalla: se ancla abajo tipo sheet */
+  .modal-backdrop { padding: 0; align-items: flex-end; }
+  .modal {
+    max-width: 100%;
+    width: 100%;
+    max-height: 94vh;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 16px 24px;
+  }
+  .modal h3 { font-size: 1.1rem; padding-right: 30px; }
+  .options-tiles { max-height: 46vh !important; }
+
+  /* Formularios: en pantallas chicas los campos van UNO DEBAJO DEL OTRO,
+     no aplastados en columnas, para que se puedan leer y tocar bien */
+  .field-row { flex-direction: column; gap: 0; }
+  .field-row .field { width: 100%; }
+
+  .form-page { padding: 20px 12px; min-height: calc(100vh - 60px); }
+  .form-card { padding: 22px 18px; }
+  .form-card h2 { font-size: 1.3rem; }
+
+  /* Los inputs a 16px reales evitan que iOS haga zoom automatico al
+     tocar un campo (con menos de 16px, Safari hace zoom in solo) */
+  .field input, .field select, .field textarea { font-size: 16px; padding: 11px 12px; }
+
+  /* Metodos de pago */
+  .pay-methods { gap: 8px; }
+  .pay-method { padding: 10px 6px; font-size: 0.78rem; }
+  .pay-method-icon { width: 15px; height: 15px; margin-right: 4px; }
+
+  /* Filas de datos de pago: valor + boton copiar no se encima */
+  .pay-details { padding: 12px 14px; font-size: 0.84rem; }
+  .pay-details .row { flex-wrap: wrap; }
+
+  .total-line { font-size: 0.95rem; }
+
+  /* Dashboard */
+  .profile-card { padding: 14px 16px; gap: 14px; flex-direction: column; }
+  .order-card { padding: 14px 16px; flex-direction: column; align-items: flex-start; gap: 8px; }
+  .order-card > div:last-child { width: 100%; display: flex; justify-content: space-between; align-items: center; }
+
+  /* Cupon: que el boton no se aplaste */
+  .coupon-row { flex-wrap: wrap; }
+  .coupon-row input { min-width: 0; width: 100%; }
+  .coupon-row button { width: 100%; }
+
+  /* Botones de accion en pedidos (admin/checkout): tamano toque comodo */
+  .btn-sm { min-height: 38px; padding: 8px 12px; }
+
+  /* Tabla de PEDIDOS/PRODUCTOS/CUPONES del admin: en vez de un scroll
+     horizontal ilegible con texto cortado, mostramos un aviso de swipe
+     y dejamos la primera columna fija para no perder el contexto */
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 10px;
+    border: 1px solid var(--border-soft);
+  }
+  .table { min-width: 640px; font-size: 0.8rem; margin-top: 10px; }
+  .table th, .table td { padding: 10px 8px; }
+  .table th:first-child, .table td:first-child {
+    position: sticky;
+    left: 0;
+    background: var(--bg-base);
+    z-index: 1;
+  }
+
+  .card-form { padding: 18px 16px; }
+  .option-row { gap: 8px; }
+  .toggle-row { align-items: flex-start; }
+}
+
+/* ======================================================
+   Responsive — Moviles chicos (≤420px)
+====================================================== */
+@media (max-width: 420px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .card img { height: 88px; }
+  .card-body { padding: 8px 10px 12px; }
+  .card-name { font-size: 0.8rem; }
+  .hero { min-height: 280px; }
+  .hero-title { font-size: 1.5rem; }
+  .navbar-inner { padding: 10px 12px; }
+  .brand { font-size: 1rem; }
+  .brand-icon { width: 30px; height: 30px; }
+  .nav-links { gap: 8px; }
+  .nav-links a { font-size: 0.74rem; }
+  .account-dropdown { top: 64px; right: 12px; }
+  .currency-dropdown { top: 64px; }
+  .modal { padding: 16px 12px 20px; }
+  .field-row { gap: 0; }
+  .coupon-row button { flex: 1 1 100%; }
+  .pay-method { font-size: 0.72rem; padding: 9px 4px; }
+  .step-nav { font-size: 0.74rem; }
+  .status-pill { font-size: 0.7rem; padding: 5px 10px; }
+  .modal h3 { font-size: 1rem; }
+}
+
+/* ======================================================
+   Landscape en telefonos: el hero no debe tapar toda la
+   pantalla en horizontal (altura util muy chica)
+====================================================== */
+@media (max-width: 900px) and (max-height: 480px) and (orientation: landscape) {
+  .hero { height: auto; min-height: 260px; }
+}

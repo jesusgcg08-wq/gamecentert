@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Crear cuenta — GameCenter</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <div class="brand"><a href="index.html">Game<span>Center</span></a></div>
+  </div>
+</nav>
+
+<div class="form-page">
+  <div class="form-card">
+    <h2>Crea tu cuenta</h2>
+    <p class="subtitle">Regístrate para hacer tus recargas y ver tus pedidos.</p>
+
+    <div id="alertBox"></div>
+
+    <form id="registerForm">
+      <div class="field">
+        <label>Nombre completo</label>
+        <input type="text" id="name" required />
+      </div>
+
+      <div class="field-row">
+        <div class="field" style="max-width:120px;">
+          <label>Codigo</label>
+          <select id="countryCode" required>
+            <option value="+58">🇻🇪 +58</option>
+            <option value="+1">🇺🇸/🇨🇦 +1</option>
+            <option value="+52">🇲🇽 +52</option>
+            <option value="+57">🇨🇴 +57</option>
+            <option value="+51">🇵🇪 +51</option>
+            <option value="+54">🇦🇷 +54</option>
+            <option value="+56">🇨🇱 +56</option>
+            <option value="+593">🇪🇨 +593</option>
+            <option value="+591">🇧🇴 +591</option>
+            <option value="+595">🇵🇾 +595</option>
+            <option value="+598">🇺🇾 +598</option>
+            <option value="+55">🇧🇷 +55</option>
+            <option value="+506">🇨🇷 +506</option>
+            <option value="+507">🇵🇦 +507</option>
+            <option value="+503">🇸🇻 +503</option>
+            <option value="+502">🇬🇹 +502</option>
+            <option value="+504">🇭🇳 +504</option>
+            <option value="+505">🇳🇮 +505</option>
+            <option value="+53">🇨🇺 +53</option>
+            <option value="+1809">🇩🇴 +1809</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Numero de telefono</label>
+          <input type="text" id="phone" placeholder="04141234567" required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Correo electronico</label>
+        <input type="email" id="email" required />
+      </div>
+
+      <div class="field">
+        <label>Contrasena</label>
+        <input type="password" id="password" minlength="6" required />
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-full">Crear cuenta</button>
+    </form>
+
+    <div style="display:flex; align-items:center; gap:10px; margin:18px 0; color:var(--text-muted); font-size:0.82rem;">
+      <div style="flex:1; height:1px; background:var(--border, #e5e5e5);"></div>
+      <span>o continua con</span>
+      <div style="flex:1; height:1px; background:var(--border, #e5e5e5);"></div>
+    </div>
+
+    <button type="button" id="googleSignInBtn" class="btn btn-outline btn-full" style="display:flex; align-items:center; justify-content:center; gap:8px;">
+      <svg width="18" height="18" viewBox="0 0 48 48">
+        <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.6 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.4 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/>
+        <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.6 18.9 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.4 6.1 29.5 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"/>
+        <path fill="#4CAF50" d="M24 44c5.4 0 10.2-2 13.8-5.4l-6.4-5.4C29.4 34.9 26.8 36 24 36c-5.3 0-9.6-3.4-11.2-8.1l-6.6 5.1C9.5 39.6 16.2 44 24 44z"/>
+        <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.2-4.2 5.6l6.4 5.4C41.5 35.9 44 30.5 44 24c0-1.3-.1-2.4-.4-3.5z"/>
+      </svg>
+      Continuar con Google
+    </button>
+
+    <div class="form-footer-link">
+      ¿Ya tienes cuenta? <a href="login.html" style="color:var(--accent-teal); font-weight:600;">Inicia sesion</a>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script type="module" src="js/auth.js"></script>
+</body>
+</html>
