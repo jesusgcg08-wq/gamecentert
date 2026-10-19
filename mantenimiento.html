@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>En mantenimiento — GameCenter</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="icon" href="assets/icongamecenter.png" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<main class="mt-page">
+  <section class="mt-card">
+    <img src="assets/icongamecenter.png" alt="GameCenter" class="mt-logo" />
+    <div class="mt-brand">Game<span>Center</span></div>
+
+    <div class="mt-badge">
+      <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.7 2.7-2.4-.6-.6-2.4 2.7-2.7Z"/></svg>
+      En mantenimiento
+    </div>
+
+    <h1 class="mt-title">Volvemos muy pronto</h1>
+    <p class="mt-msg" id="mtMessage">Estamos en mantenimiento por una nueva actualización de la página.</p>
+    <div class="mt-bar" aria-hidden="true"></div>
+
+    <div class="mt-foot" id="mtFoot">Gracias por tu paciencia.</div>
+  </section>
+</main>
+
+<script type="module">
+  import { auth, db } from "./js/firebase-config.js";
+  import { doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+
+  const DEFAULT_MSG = "Estamos en mantenimiento por una nueva actualización de la página.";
+  const preview = new URLSearchParams(location.search).get("preview") === "1";
+  const msgEl = document.getElementById("mtMessage");
+  const footEl = document.getElementById("mtFoot");
+
+  function setFlag(key, on) {
+    try { on ? localStorage.setItem(key, "1") : localStorage.removeItem(key); } catch (e) {}
+  }
+
+  async function checkAdmin() {
+    try {
+      await auth.authStateReady();
+      if (!auth.currentUser) return false;
+      const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+      return snap.exists() && snap.data().role === "admin";
+    } catch (e) { return false; }
+  }
+
+  let adminShown = false;
+  async function showAdminLink() {
+    if (adminShown) return;
+    if (!(await checkAdmin())) return;
+    adminShown = true;
+    setFlag("gc_maint_admin", true);
+    footEl.innerHTML = '<a href="index.html" style="color:var(--accent-teal);font-weight:600;">Entrar al sitio como administrador</a>';
+  }
+
+  onSnapshot(
+    doc(db, "settings", "main"),
+    (snap) => {
+      const s = snap.exists() ? snap.data() : {};
+      const on = s.maintenanceEnabled === true;
+      const custom = (s.maintenanceMessage || "").trim();
+      msgEl.textContent = custom || DEFAULT_MSG;
+      setFlag("gc_maint", on);
+      if (preview) {
+        footEl.textContent = on ? "Vista previa — el mantenimiento esta activo." : "Vista previa — el mantenimiento esta desactivado.";
+        return;
+      }
+      if (!on) {
+        // El admin desactivo el mantenimiento: volvemos al sitio
+        location.replace("index.html");
+        return;
+      }
+      showAdminLink();
+    },
+    (err) => console.error(err)
+  );
+</script>
+</body>
+</html>

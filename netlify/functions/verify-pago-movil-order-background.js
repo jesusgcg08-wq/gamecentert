@@ -9,13 +9,15 @@
 // pago DE MAS (no importa cuanto mas), se procesa igual -- solo se rechaza
 // si pago DE MENOS (por debajo del margen de tolerancia por redondeo).
 
-const admin = require("./lib/firebase-admin");
+const admin = require("./lib/firebase");
 const { verifyPabiloPayment } = require("./lib/pabilo");
-const { createShop2topupOrder, triggerVoucherFollowup } = require("./lib/shop2topup");
+const { createCentralOneOrder, triggerVoucherFollowup, waitForVouchers } = require("./lib/centralone");
 
 const db = admin.firestore();
 
-const AMOUNT_TOLERANCE_BS = parseFloat(process.env.PABILO_AMOUNT_TOLERANCE_BS || "0.5");
+// Si paga de MENOS: se tolera hasta 10 Bs de diferencia (11 Bs o mas de menos => rechazado).
+// Si paga de MAS: se procesa igual, sin limite (500 Bs de mas tambien pasa).
+const AMOUNT_TOLERANCE_BS = parseFloat(process.env.PABILO_AMOUNT_TOLERANCE_BS || "10");
 
 exports.handler = async function (event) {
   let body;
@@ -59,6 +61,7 @@ exports.handler = async function (event) {
     playerGameId,
     zoneId,
     autoRecharge,
+    isGiftcard,
     shop2topupItemId,
     extraFieldName,
     extraFieldValue,
@@ -108,7 +111,8 @@ exports.handler = async function (event) {
     // ---- Regla de monto: si pago MENOS de lo esperado (mas alla del
     // margen de tolerancia por redondeo), se rechaza. Si pago igual o MAS
     // -- sin importar cuanto mas -- se procesa normal. ----
-    if (pabiloResult.amount < expectedTotalBs - AMOUNT_TOLERANCE_BS) {
+    // Epsilon de 0.005 para evitar errores de punto flotante justo en el borde de 10 Bs.
+    if (pabiloResult.amount < expectedTotalBs - AMOUNT_TOLERANCE_BS - 0.005) {
       await resolve({
         verificationState: "listo",
         success: false,
@@ -135,6 +139,7 @@ exports.handler = async function (event) {
       playerGameId: playerGameId || "",
       zoneId: zoneId || "",
       autoRecharge: !!autoRecharge,
+      isGiftcard: !!isGiftcard,
       shop2topupItemId: autoRecharge ? shop2topupItemId || null : null,
       extraFieldName: extraFieldName || "",
       extraFieldValue: extraFieldValue || "",
@@ -166,11 +171,14 @@ exports.handler = async function (event) {
       totalBs: expectedTotalBs,
       playerGameId: orderData.playerGameId,
       zoneId: orderData.zoneId,
+      paymentMethod: "Pago Movil",
+      reference: bankReference,
+      date: new Date().toISOString(),
     };
 
     // ---- Recarga automatica, si el producto la tiene activada ----
     if (autoRecharge && shop2topupItemId) {
-      const s2tResult = await createShop2topupOrder({
+      const s2tResult = await createCentralOneOrder({
         orderId: orderRef.id,
         subCategoryId: shop2topupItemId,
         playerId: orderData.playerGameId,
@@ -180,35 +188,73 @@ exports.handler = async function (event) {
       });
 
       if (s2tResult.success && s2tResult.order) {
-        const updatePayload = {
-          status: "completado",
-          shop2topupOrderId: s2tResult.order.order_id,
+        const centralOneOrderId = s2tResult.order.order_id;
+        receipt.centralOneOrderId = centralOneOrderId;
+
+        // Se guarda YA el id de Central One en el pedido (el seguimiento y el
+        // dashboard lo necesitan para encontrar la giftcard).
+        await orderRef.update({
+          status: "en_proceso",
+          shop2topupOrderId: centralOneOrderId,
           shop2topupStatus: s2tResult.order.status,
-        };
-        const hasVouchers = s2tResult.order.vouchers && s2tResult.order.vouchers.length > 0;
-        if (hasVouchers) {
-          updatePayload.vouchers = s2tResult.order.vouchers;
+        });
+
+        // Se ESPERA a que Central One entregue el codigo antes de mostrar el
+        // recibo: asi el cliente ve su giftcard de una vez. Esta funcion es
+        // background (hasta 15 min), asi que aguanta la espera sin problema.
+        let final = s2tResult.order.vouchers && s2tResult.order.vouchers.length > 0 ? s2tResult.order : null;
+        if (!final) {
+          // Solo las giftcards tienen codigo que esperar; las recargas directas no.
+          final = (await waitForVouchers(centralOneOrderId, isGiftcard ? {} : { timeoutMs: 20000 })) || s2tResult.order;
         }
+        const vouchers = final.vouchers || [];
+
+        if (final.internal_status === "rechazado") {
+          const note = `Central One reporto ${final.status}${final.failure && final.failure.code ? ` (${final.failure.code})` : ""}. Revisar reembolso o entrega manual.`;
+          await orderRef.update({ status: "rechazado", shop2topupStatus: final.status, adminNote: note, requiresRefundReview: true });
+          await resolve({
+            verificationState: "listo",
+            success: true,
+            autoRecharge: true,
+            status: "en_proceso",
+            needsWhatsapp: true,
+            requiresRefund: true,
+            whatsappNote:
+              "Tu pago fue procesado, pero hubo un error con tu recarga/giftcard (posible falta de stock). Contactanos por WhatsApp para coordinar tu reembolso o la entrega manual.",
+            orderId: orderRef.id,
+            receipt,
+          });
+          return { statusCode: 200, body: "completado (auto rechazado)" };
+        }
+
+        const delivered = vouchers.length > 0 || final.internal_status === "completado";
+        const updatePayload = { shop2topupStatus: final.status };
+        if (vouchers.length > 0) updatePayload.vouchers = vouchers;
+        if (delivered) updatePayload.status = "completado";
         await orderRef.update(updatePayload);
 
-        if (!hasVouchers) {
+        // Si todavia no hay codigo (Central One tardo mas de lo normal), el
+        // seguimiento en background sigue consultando y el dashboard lo
+        // mostrara apenas llegue.
+        if (!delivered || (vouchers.length === 0 && final.codesPending)) {
           console.log(`[pago-movil-background] Sin voucher todavia, disparando seguimiento para pedido ${orderRef.id}`);
-          await triggerVoucherFollowup(orderRef.id, s2tResult.order.order_id);
+          await triggerVoucherFollowup(orderRef.id, centralOneOrderId);
         }
 
         await resolve({
           verificationState: "listo",
           success: true,
           autoRecharge: true,
-          status: "completado",
+          status: delivered ? "completado" : "en_proceso",
           needsWhatsapp: false,
           orderId: orderRef.id,
+          vouchers,
           receipt,
         });
         return { statusCode: 200, body: "completado (auto)" };
       }
 
-      // Pago verificado pero Shop2Topup fallo (ej. sin stock): el dinero ya
+      // Pago verificado pero Central One fallo (ej. sin stock): el dinero ya
       // esta confirmado, no se pierde. Se deja visible para revision y se
       // avisa por WhatsApp igual, dejando claro que fue un error de la
       // recarga/giftcard (no del pago).

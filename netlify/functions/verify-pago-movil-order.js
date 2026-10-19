@@ -8,13 +8,13 @@
 // Solucion: aqui solo se valida lo rapido (login, producto/opcion/cupon,
 // candado de referencia) y se crea un documento en "pendingVerifications"
 // con todo lo necesario. Despues se dispara (fire-and-forget, mismo patron
-// que triggerVoucherFollowup en lib/shop2topup.js) la funcion en BACKGROUND
+// que triggerVoucherFollowup en lib/centralone.js) la funcion en BACKGROUND
 // verify-pago-movil-order-background.js, que aguanta hasta 15 minutos y ahi
 // SI se llama a Pabilo sin importar cuanto tarde. El frontend escucha ese
 // documento con onSnapshot y reacciona cuando el estado cambia de
 // "verificando" a "listo".
 
-const admin = require("./lib/firebase-admin");
+const admin = require("./lib/firebase");
 
 const db = admin.firestore();
 
@@ -22,7 +22,7 @@ function fail(statusCode, message, extra = {}) {
   return { statusCode, body: JSON.stringify({ success: false, message, ...extra }) };
 }
 
-exports.handler = async function (event) {
+async function mainHandler(event) {
   if (event.httpMethod !== "POST") {
     return fail(405, "Metodo no permitido");
   }
@@ -41,7 +41,8 @@ exports.handler = async function (event) {
   }
 
   // ---- 1) El uid SIEMPRE sale del token de Firebase, nunca del body. ----
-  const authHeader = event.headers.authorization || event.headers.Authorization || "";
+  const headers = event.headers || {};
+  const authHeader = headers.authorization || headers.Authorization || "";
   const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (!idToken) return fail(401, "Falta autenticacion");
 
@@ -130,6 +131,7 @@ exports.handler = async function (event) {
     payerPhone: String(payerPhone).trim(),
     playerGameId: product.requiresId ? String(playerGameId).trim() : "",
     zoneId: product.requiresZoneId ? String(zoneId).trim() : "",
+    isGiftcard: product.category === "giftcards",
     autoRecharge: !!product.autoRecharge,
     shop2topupItemId: product.autoRecharge ? option.shop2topupItemId || null : null,
     extraFieldName: product.extraField ? product.extraField.fieldName : "",
@@ -163,4 +165,17 @@ exports.handler = async function (event) {
     statusCode: 200,
     body: JSON.stringify({ success: true, pending: true, pendingId: pendingRef.id }),
   };
+}
+
+// Envoltorio: pase lo que pase (TypeError, Firestore caido, env vars faltantes),
+// SIEMPRE se responde JSON. Antes, una excepcion no capturada hacia que Netlify
+// devolviera texto plano "TypeError: ..." con 500 y el frontend reventaba en
+// res.json() con "Unexpected token 'T'".
+exports.handler = async function (event) {
+  try {
+    return await mainHandler(event);
+  } catch (err) {
+    console.error("[verify-pago-movil-order] error no controlado:", err);
+    return fail(500, "Error interno al iniciar la verificacion, intenta de nuevo");
+  }
 };

@@ -27,6 +27,7 @@ import {
   updatePassword,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
 import { doc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+import { icon } from "./icons.js";
 
 const CURRENCY_KEY = "gc_display_currency";
 
@@ -133,21 +134,71 @@ export function initAccountMenu(options = {}) {
 // ============ Nav: partes fijas (Catalogo / Soporte / moneda / cuenta) ============
 function buildStaticNav(area) {
   const cur = getDisplayCurrency();
+  const page = pageOptions.activePage;
+  const liveSearch = page === "catalogo" || page === "home";
   area.innerHTML = `
-    <a href="index.html" class="${pageOptions.activePage === "catalogo" ? "active" : ""}">Catalogo</a>
-    <a href="index.html#soporte">Soporte</a>
-    <div class="currency-toggle" id="gcCurrencyToggle">
-      <button type="button" class="currency-toggle-btn" id="gcCurrencyBtn">
-        <span id="gcCurrencyLabel">${cur === "bs" ? "Bs" : "USD"}</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"/></svg>
-      </button>
-      <div class="currency-dropdown">
-        <div class="currency-option ${cur === "usd" ? "active" : ""}" data-cur="usd">Ver en Dolares (USD)</div>
-        <div class="currency-option ${cur === "bs" ? "active" : ""}" data-cur="bs">Ver en Bolivares (Bs)</div>
+    <span class="nav-spacer"></span>
+    <div class="nav-pill">
+      <div class="nav-pill-links">
+        <a href="index.html" class="${page === "home" ? "active" : ""}">Inicio</a>
+        <a href="catalogo-completo.html" class="${page === "catalogo" ? "active" : ""}">Catalogo</a>
+        <a href="resenas.html" class="${page === "resenas" ? "active" : ""}">Reseñas</a>
+        <a href="#soporte" id="gcSupportLink">Soporte</a>
+      </div>
+      <div class="nav-search" id="gcSearchWrap">
+        <button type="button" class="nav-search-btn" id="gcSearchBtn" aria-label="Buscar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        </button>
+        <input type="search" id="gcSearchInput" placeholder="Buscar..." autocomplete="off" />
+        <button type="button" class="nav-search-close" id="gcSearchClose" aria-label="Cerrar busqueda">${icon("close", "16px")}</button>
       </div>
     </div>
-    <div id="gcAccountBox"></div>
+    <div class="nav-right">
+      <div class="currency-toggle" id="gcCurrencyToggle">
+        <button type="button" class="currency-toggle-btn" id="gcCurrencyBtn">
+          <span id="gcCurrencyLabel">${cur === "bs" ? "Bs" : "USD"}</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="currency-dropdown">
+          <div class="currency-option ${cur === "usd" ? "active" : ""}" data-cur="usd">Ver en Dolares (USD)</div>
+          <div class="currency-option ${cur === "bs" ? "active" : ""}" data-cur="bs">Ver en Bolivares (Bs)</div>
+        </div>
+      </div>
+      <div id="gcAccountBox"></div>
+    </div>
   `;
+
+  // Soporte: en el home baja al pie; en otras paginas vuelve al home
+  const supportLink = document.getElementById("gcSupportLink");
+  supportLink.href = document.getElementById("soporte") ? "#soporte" : "index.html#soporte";
+
+  // Buscador: en inicio/catalogo filtra en vivo; en otras paginas lleva al inicio con ?q=
+  const searchInput = document.getElementById("gcSearchInput");
+  const searchWrap = document.getElementById("gcSearchWrap");
+  searchInput.addEventListener("input", () => {
+    if (liveSearch) window.dispatchEvent(new CustomEvent("gc-search", { detail: { q: searchInput.value } }));
+  });
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeMobileSearch();
+    if (e.key !== "Enter" || liveSearch) return;
+    const q = searchInput.value.trim();
+    if (q) window.location.href = `catalogo-completo.html?q=${encodeURIComponent(q)}`;
+  });
+  // En telefono el buscador es un icono que abre una barra encima del navbar
+  function closeMobileSearch() {
+    searchWrap.classList.remove("open");
+    document.querySelector(".navbar")?.classList.remove("search-open");
+  }
+  document.getElementById("gcSearchBtn").addEventListener("click", () => {
+    if (!window.matchMedia("(max-width: 900px)").matches) {
+      searchInput.focus();
+      return;
+    }
+    searchWrap.classList.add("open");
+    document.querySelector(".navbar")?.classList.add("search-open");
+    searchInput.focus();
+  });
+  document.getElementById("gcSearchClose").addEventListener("click", closeMobileSearch);
 
   const toggle = document.getElementById("gcCurrencyToggle");
   toggle.querySelector("#gcCurrencyBtn").addEventListener("click", (e) => {
@@ -193,7 +244,7 @@ function renderAccountBox() {
   if (!box) return;
 
   if (!currentUser) {
-    box.innerHTML = `<a href="login.html" class="btn btn-primary btn-sm">Iniciar sesion</a>`;
+    box.innerHTML = `<a href="login.html" class="btn btn-sm btn-login-pill">${icon("user", "15px")}<span class="btn-login-text">Iniciar sesion</span></a>`;
     return;
   }
 
@@ -214,10 +265,20 @@ function renderAccountBox() {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"/></svg>
       </div>
       <div class="account-dropdown">
-        <a href="dashboard.html" class="account-dropdown-item ${pageOptions.activePage === "dashboard" ? "active" : ""}">🧾 Mis pedidos</a>
-        <div class="account-dropdown-item" id="gcOpenInfoBtn">👤 Info</div>
-        <a href="wallet.html" class="account-dropdown-item ${pageOptions.activePage === "wallet" ? "active" : ""}">💰 Wallet</a>
-        <div class="account-dropdown-item danger" id="gcLogoutBtn">🚪 Salir</div>
+        <div class="account-dropdown-head">
+          <div class="account-avatar lg">
+            ${avatarUrl ? `<img src="${avatarUrl}" alt="" onerror="this.parentElement.textContent='${initials(name)}';" />` : initials(name)}
+          </div>
+          <div class="account-dropdown-who">
+            <div class="adn">${name}</div>
+            <div class="adb">${icon("wallet", "13px")} ${formatMoneyDisplay(balance)}</div>
+          </div>
+        </div>
+        <a href="dashboard.html" class="account-dropdown-item ${pageOptions.activePage === "dashboard" ? "active" : ""}">${icon("receipt", "18px")}<span>Mis pedidos</span></a>
+        <div class="account-dropdown-item" id="gcOpenInfoBtn">${icon("user", "18px")}<span>Info</span></div>
+        <a href="wallet.html" class="account-dropdown-item ${pageOptions.activePage === "wallet" ? "active" : ""}">${icon("wallet", "18px")}<span>Wallet</span></a>
+        <div class="account-dropdown-sep"></div>
+        <div class="account-dropdown-item danger" id="gcLogoutBtn">${icon("logout", "18px")}<span>Salir</span></div>
       </div>
     </div>
   `;
@@ -334,7 +395,7 @@ function ensureInfoModal() {
 
     try {
       await updateDoc(doc(db, "users", currentUser.uid), { phone, avatarUrl });
-      alertBox.innerHTML = '<div class="alert alert-success">Datos actualizados ✅</div>';
+      alertBox.innerHTML = `<div class="alert alert-success">${icon("check-circle")} Datos actualizados</div>`;
     } catch (err) {
       console.error(err);
       alertBox.innerHTML = '<div class="alert alert-error">No se pudo guardar, intenta de nuevo.</div>';
@@ -373,7 +434,7 @@ function ensureInfoModal() {
       const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
       await reauthenticateWithCredential(currentUser, credential);
       await updatePassword(currentUser, newPassword);
-      alertBox.innerHTML = '<div class="alert alert-success">Contraseña actualizada ✅</div>';
+      alertBox.innerHTML = `<div class="alert alert-success">${icon("check-circle")} Contraseña actualizada</div>`;
       document.getElementById("gcCurrentPassword").value = "";
       document.getElementById("gcNewPassword").value = "";
       document.getElementById("gcNewPassword2").value = "";

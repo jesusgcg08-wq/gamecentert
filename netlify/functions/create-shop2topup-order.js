@@ -22,7 +22,7 @@
 //   pedido (doble click, reintento de red, etc.), siempre se genera el
 //   mismo order_id y Shop2Topup lo protege por su cuenta.
 const crypto = require("crypto");
-const admin = require("./lib/firebase-admin");
+const admin = require("./lib/firebase");
 const db = admin.firestore();
 
 // Namespace fijo y arbitrario (estandar UUID DNS namespace) solo para tener

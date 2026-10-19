@@ -7,7 +7,8 @@
 // ============================================================================
 
 import { db } from "./firebase-config.js";
-import { collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+import { icon } from "./icons.js";
+import { collection, query, where, orderBy, onSnapshot, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 import { initAccountMenu, onAccountChange } from "./account-menu.js";
 
 initAccountMenu({ activePage: "dashboard" });
@@ -15,7 +16,7 @@ initAccountMenu({ activePage: "dashboard" });
 const STATUS_LABELS = {
   recibido: "Recibido",
   en_proceso: "En proceso",
-  completado: "✅ Success",
+  completado: "Success",
   rechazado: "Rechazado",
 };
 
@@ -91,7 +92,7 @@ loadRevealedFromStorage();
 
 // Tarjetitas de giftcard: se muestran solo cuando el pedido ya trae
 // "vouchers" (los llena el seguimiento en background o el webhook apenas
-// Shop2Topup confirma order.completed). El codigo arranca OCULTO detras de
+// Central One confirma order.completed). El codigo arranca OCULTO detras de
 // un boton -- el cliente tiene que confirmar que entiende que, una vez
 // visto el codigo, no aplica reembolso (asi como pasa con cualquier tarjeta
 // de regalo: una vez revelada, no hay forma de saber si ya se uso o no).
@@ -115,7 +116,7 @@ function renderVouchers(order, orderId) {
         <div class="voucher-card voucher-revealed">
           <div class="voucher-code-row">
             <div style="min-width:0;">
-              <div class="voucher-code-label">🎁 Codigo de tu giftcard</div>
+              <div class="voucher-code-label">${icon("gift")} Codigo de tu giftcard</div>
               <div class="voucher-code-value">${code}</div>
               ${metaLine}
             </div>
@@ -127,7 +128,7 @@ function renderVouchers(order, orderId) {
       if (state === "confirming") {
         return `
         <div class="voucher-card voucher-confirm">
-          <div class="voucher-confirm-title">⚠️ Antes de ver tu codigo</div>
+          <div class="voucher-confirm-title">${icon("alert")} Antes de ver tu codigo</div>
           <div class="voucher-confirm-text">
             Una vez que reveles el codigo de tu giftcard, <strong>no se puede procesar ningun reembolso</strong>
             sobre este pedido -- no hay forma de verificar si el codigo ya fue usado o no.
@@ -146,7 +147,7 @@ function renderVouchers(order, orderId) {
       // hidden (default)
       return `
       <div class="voucher-card voucher-ready">
-        <div class="voucher-ready-label">🎁 Tu giftcard ya esta lista</div>
+        <div class="voucher-ready-label">${icon("gift")} Tu giftcard ya esta lista</div>
         <button type="button" class="btn btn-primary btn-sm reveal-voucher-btn" data-key="${key}">
           Mostrar giftcard
         </button>
@@ -155,6 +156,52 @@ function renderVouchers(order, orderId) {
     .join("");
 
   return `<div class="voucher-list">${cards}</div>`;
+}
+
+// Categoria de cada producto (para pedidos viejos que no guardaron isGiftcard).
+const productCategoryCache = new Map(); // productId -> categoria
+const productCategoryLoading = new Set();
+function isGiftcardOrder(o) {
+  if (o.isGiftcard === true) return true;
+  if (o.isGiftcard === false) return false;
+  return productCategoryCache.get(o.productId) === "giftcards";
+}
+function loadMissingCategories() {
+  const missing = [...new Set(lastOrdersSnap.map(({ data }) => data))]
+    .filter((o) => typeof o.isGiftcard !== "boolean" && o.productId && !productCategoryCache.has(o.productId) && !productCategoryLoading.has(o.productId))
+    .map((o) => o.productId);
+  [...new Set(missing)].forEach((pid) => {
+    productCategoryLoading.add(pid);
+    getDoc(doc(db, "products", pid))
+      .then((snap) => productCategoryCache.set(pid, snap.exists() ? snap.data().category || "" : ""))
+      .catch(() => productCategoryCache.set(pid, ""))
+      .finally(() => {
+        productCategoryLoading.delete(pid);
+        repaintOrders();
+        checkPendingVouchers();
+      });
+  });
+}
+
+function renderVoucherNotice(o, orderId) {
+  if (!isGiftcardOrder(o)) return "";
+  if (Array.isArray(o.vouchers) && o.vouchers.length) return "";
+  if (!o.shop2topupOrderId || o.status === "rechazado") return "";
+  const info = voucherCheckInfo.get(orderId);
+  if (info === "none" || !info) return "";
+  const msg =
+    info === "nokey"
+      ? "El servidor no tiene cargada la llave <strong>CENTRALONE_API_KEY</strong>. Revisa tu .env y reinicia <strong>netlify dev</strong>."
+      : info === "badkey"
+      ? "Central One rechazo la llave (invalida o desactivada). Si acabas de cambiarla, actualiza <strong>CENTRALONE_API_KEY</strong> en tu .env y en Netlify y reinicia <strong>netlify dev</strong>."
+      : info === "notfound"
+      ? "Central One no encuentra esta orden con la llave actual. Si cambiaste de llave o de cuenta, este pedido hay que entregarlo manualmente."
+      : info === "noperm"
+      ? "No se puede leer el codigo de la giftcard: a la llave de Central One le falta el permiso <strong>codes:read</strong>. Activalo en Central One (Integracion, API) y se mostrara solo."
+      : info === "error"
+      ? "Central One no entrego el codigo todavia. Se reintentara automaticamente."
+      : "Estamos preparando tu giftcard. Aparecera aqui automaticamente en unos instantes.";
+  return `<div class="voucher-card voucher-ready"><div class="voucher-ready-label" style="font-weight:500; line-height:1.45;">${msg}</div></div>`;
 }
 
 function renderOrderCard(o, orderId) {
@@ -187,6 +234,7 @@ function renderOrderCard(o, orderId) {
       </div>
     </div>
     ${renderVouchers(o, orderId)}
+    ${renderVoucherNotice(o, orderId)}
   </div>`;
 }
 
@@ -218,7 +266,7 @@ function watchOrders(uid) {
   const q = query(collection(db, "orders"), where("userId", "==", uid), orderBy("createdAt", "desc"));
 
   // onSnapshot deja el listener abierto: en cuanto el webhook de
-  // Shop2Topup confirme el pedido (o el admin cambie el estado a mano), el
+  // Central One confirme el pedido (o el admin cambie el estado a mano), el
   // dashboard se actualiza solo, sin que el cliente tenga que recargar.
   unsubscribeOrders = onSnapshot(
     q,
@@ -230,6 +278,8 @@ function watchOrders(uid) {
       }
       lastOrdersSnap = snap.docs.map((d) => ({ data: d.data(), id: d.id }));
       repaintOrders();
+      loadMissingCategories();
+      checkPendingVouchers();
     },
     (err) => {
       console.error(err);
@@ -271,7 +321,7 @@ document.getElementById("orderList")?.addEventListener("click", (e) => {
       .writeText(code)
       .then(() => {
         const original = copyBtn.textContent;
-        copyBtn.textContent = "✅ Copiado";
+        copyBtn.textContent = "Copiado";
         setTimeout(() => {
           copyBtn.textContent = original;
         }, 1500);
@@ -282,7 +332,73 @@ document.getElementById("orderList")?.addEventListener("click", (e) => {
   }
 });
 
+// ---- Giftcards pendientes: si un pedido de recarga automatica aun no trae el
+// codigo, se le pregunta al servidor (que consulta a Central One y lo guarda
+// en Firestore; onSnapshot lo pinta solo). No depende del webhook, que en
+// local ni siquiera existe. ----
+let currentAuthUser = null;
+const voucherCheckAttempts = new Map(); // orderId -> intentos
+const voucherCheckBusy = new Set();
+const voucherCheckInfo = new Map(); // orderId -> waiting | noperm | nokey | badkey | notfound | error | none
+const MAX_VOUCHER_CHECKS = 40; // 40 x 15 s = 10 min por pedido y sesion
+
+async function checkPendingVouchers() {
+  if (!currentAuthUser || typeof currentAuthUser.getIdToken !== "function") return;
+  const DAY = 24 * 60 * 60 * 1000;
+  const pending = lastOrdersSnap.filter(({ data, id }) => {
+    if (!data.shop2topupOrderId || data.status === "rechazado" || !isGiftcardOrder(data)) return false;
+    if (Array.isArray(data.vouchers) && data.vouchers.length) return false;
+    const created = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : Date.now();
+    if (Date.now() - created > DAY) return false;
+    return (voucherCheckAttempts.get(id) || 0) < MAX_VOUCHER_CHECKS && !voucherCheckBusy.has(id);
+  });
+  if (!pending.length) return;
+  let idToken;
+  try { idToken = await currentAuthUser.getIdToken(); } catch { return; }
+  for (const { id } of pending) {
+    voucherCheckBusy.add(id);
+    voucherCheckAttempts.set(id, (voucherCheckAttempts.get(id) || 0) + 1);
+    try {
+      const res = await fetch("/.netlify/functions/check-centralone-order-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ orderId: id }),
+      });
+      const j = await res.json().catch(() => null);
+      const o = j && j.success ? j.order : null;
+      console.log(`[giftcard] pedido ${id}:`, j);
+      if (!o) {
+        const d = j && j.detail;
+        const c = d && d.code;
+        voucherCheckInfo.set(
+          id,
+          c === "missing_api_key" ? "nokey"
+          : c === "invalid_api_key" || (d && d.http === 401) ? "badkey"
+          : c === "insufficient_scope" || (d && d.http === 403) ? "noperm"
+          : d && d.http === 404 ? "notfound"
+          : "waiting"
+        );
+      } else if (o.codesError) {
+        // Central One no deja leer los codigos (casi siempre: falta el permiso codes:read en la llave).
+        voucherCheckInfo.set(id, o.codesError.code === "insufficient_scope" ? "noperm" : "error");
+      } else if (o.internal_status === "completado" && !o.codesPending && !(o.vouchers || []).length) {
+        voucherCheckInfo.set(id, "none"); // recarga directa: no hay codigo
+        voucherCheckAttempts.set(id, MAX_VOUCHER_CHECKS);
+      } else {
+        voucherCheckInfo.set(id, "waiting");
+      }
+      repaintOrders();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      voucherCheckBusy.delete(id);
+    }
+  }
+}
+setInterval(checkPendingVouchers, 15000);
+
 onAccountChange((user) => {
+  currentAuthUser = user || null;
   if (!user) {
     if (unsubscribeOrders) {
       unsubscribeOrders();

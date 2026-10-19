@@ -17,7 +17,7 @@
 // - El codigo expira a los 10 minutos.
 
 const crypto = require("crypto");
-const admin = require("./lib/firebase-admin");
+const admin = require("./lib/firebase");
 
 const db = admin.firestore();
 

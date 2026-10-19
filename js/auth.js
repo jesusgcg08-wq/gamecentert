@@ -23,6 +23,14 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
+// Si el usuario venia de una pagina de producto (producto.js guarda la ruta en
+// sessionStorage antes de mandarlo a iniciar sesion), regresa ahi; si no, al inicio.
+function postLoginTarget() {
+  const back = sessionStorage.getItem("gc_return_to");
+  sessionStorage.removeItem("gc_return_to");
+  return back && /^(producto\.html\?|resenas\.html$)/.test(back) ? back : "index.html";
+}
+
 // Misma validacion de paises que tenias en el backend
 const ALLOWED_COUNTRY_CODES = [
   "+1", "+52", "+54", "+55", "+56", "+57", "+58", "+51", "+593", "+595",
@@ -109,7 +117,7 @@ if (registerForm) {
       showAlert("Registro exitoso, iniciando sesion...", "success");
       sessionStorage.setItem("showWelcomeToast", "1");
       setTimeout(() => {
-        window.location.href = "index.html";
+        window.location.href = postLoginTarget();
       }, 1200);
     } catch (err) {
       console.error(err);
@@ -141,7 +149,7 @@ if (loginForm) {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       sessionStorage.setItem("showWelcomeToast", "1");
-      window.location.href = "index.html";
+      window.location.href = postLoginTarget();
     } catch (err) {
       console.error(err);
       showAlert("Credenciales incorrectas");
@@ -181,7 +189,7 @@ async function handleGoogleSignIn() {
     }
 
     sessionStorage.setItem("showWelcomeToast", "1");
-    window.location.href = "index.html";
+    window.location.href = postLoginTarget();
   } catch (err) {
     console.error(err);
     if (err.code === "auth/popup-closed-by-user") {

@@ -2,9 +2,11 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Mi Wallet — GameCenter</title>
 <link rel="stylesheet" href="css/style.css" />
+<script>try{if(localStorage.getItem("gc_maint")==="1"&&localStorage.getItem("gc_maint_admin")!=="1")location.replace("mantenimiento.html")}catch(e){}</script>
+<script type="module" src="js/maintenance-guard.js"></script>
 </head>
 <body>
 
@@ -28,7 +30,7 @@
     <div class="label">Saldo disponible</div>
     <div class="amount" id="walletBalanceMain">$0.00</div>
     <div class="amount-alt" id="walletBalanceAlt">Bs 0,00</div>
-    <button class="btn btn-primary" id="openDepositBtn">💰 Depositar</button>
+    <button class="btn btn-primary" id="openDepositBtn"><svg class="ic" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1"/><path d="M3 7v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2H5a2 2 0 0 1-2-2Z"/><circle cx="16.5" cy="14" r="1.2"/></svg> Depositar</button>
   </div>
 
   <h3 class="section-title" style="font-size:1.1rem;">Historial de depositos</h3>
@@ -120,7 +122,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.6 2h-3.3v13.7c0 1.5-1.2 2.7-2.7 2.7a2.7 2.7 0 0 1-2.7-2.7 2.7 2.7 0 0 1 2.7-2.7c.28 0 .55.04.8.12V9.7a6 6 0 0 0-.8-.05A6 6 0 0 0 4.6 15.7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V8.9a8.2 8.2 0 0 0 4.4 1.27V6.87A4.85 4.85 0 0 1 16.6 2Z"/></svg>
       </a>
     </div>
-    <div class="footer-copy">© 2026 GameCenter · Developed By Zerkov 🧑‍💻</div>
+    <div class="footer-copy">© 2026 GameCenter · Developed By Zerkov <svg class="ic" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/></svg></div>
   </div>
 </footer>
 </body>

@@ -5,6 +5,7 @@
 // ============================================================================
 
 import { auth, db } from "./firebase-config.js";
+import { icon } from "./icons.js";
 import { doc, getDoc, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 import { initAccountMenu, onAccountChange, getCurrentUser, getCurrentProfile } from "./account-menu.js";
 
@@ -48,7 +49,7 @@ async function loadDepositHistory(uid) {
       .map((d) => {
         const dep = d.data();
         const fecha = dep.createdAt?.toDate ? dep.createdAt.toDate().toLocaleString("es-VE", { dateStyle: "medium", timeStyle: "short" }) : "";
-        const statusLabel = dep.status === "completado" ? "✅ Success" : "Rechazado";
+        const statusLabel = dep.status === "completado" ? "Success" : "Rechazado";
         return `
         <div class="order-card">
           <div>
@@ -308,7 +309,7 @@ document.getElementById("verifyDepositBtn").addEventListener("click", async () =
         <div class="alert alert-error">${data.message || "No se pudo verificar el pago"}</div>
         ${
           isInsufficient
-            ? `<a href="https://wa.me/${wa}?text=${supportText}" target="_blank" rel="noopener" class="btn btn-outline btn-full" style="margin-top:10px;">💬 Contactar soporte por WhatsApp</a>`
+            ? `<a href="https://wa.me/${wa}?text=${supportText}" target="_blank" rel="noopener" class="btn btn-outline btn-full" style="margin-top:10px;">${icon("chat")} Contactar soporte por WhatsApp</a>`
             : ""
         }`;
       btn.disabled = false;
@@ -319,10 +320,10 @@ document.getElementById("verifyDepositBtn").addEventListener("click", async () =
     clearInterval(depositTimerInterval);
     const fecha = new Date(data.date).toLocaleString("es-VE", { dateStyle: "medium", timeStyle: "short" });
     document.getElementById("depReceiptBox").innerHTML = `
-      <div class="alert alert-success" style="text-align:center;">✅ <strong>SUCCESS</strong> — Deposito verificado y acreditado</div>
+      <div class="alert alert-success" style="text-align:center;">${icon("check-circle")} <strong>SUCCESS</strong> — Deposito verificado y acreditado</div>
       <div class="pay-details" style="margin-top:10px; border:1px dashed var(--border-soft); border-radius:12px; padding:16px;">
         <div style="text-align:center; margin-bottom:10px;">
-          <strong style="font-size:1.05rem;">🧾 Comprobante de deposito</strong>
+          <strong style="font-size:1.05rem;">${icon("receipt")} Comprobante de deposito</strong>
           <div style="color:var(--text-muted); font-size:0.8rem; margin-top:2px;">${fecha}</div>
         </div>
         <div class="row"><span>Monto depositado:</span><span><strong>$${data.amountUsd.toFixed(2)}</strong></span></div>

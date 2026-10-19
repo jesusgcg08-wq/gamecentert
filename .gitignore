@@ -1,2 +1,4 @@
 ﻿.netlify/
 .netlify_raiz_vieja/
+
+node_modules/

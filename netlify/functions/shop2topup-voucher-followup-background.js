@@ -18,7 +18,7 @@
 // respaldo independiente -- cualquiera de los dos que llegue primero deja
 // el pedido completo.
 
-const admin = require("./lib/firebase-admin");
+const admin = require("./lib/firebase");
 const { checkOrderStatus, mapShop2topupStatus } = require("./lib/shop2topup");
 
 const db = admin.firestore();

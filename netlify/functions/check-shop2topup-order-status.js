@@ -6,7 +6,7 @@
 // otra persona. Nunca se debe devolver el estado/voucher de un pedido sin
 // confirmar el dueño primero.
 
-const admin = require("./lib/firebase-admin");
+const admin = require("./lib/firebase");
 const db = admin.firestore();
 
 function mapShop2topupStatus(s2tStatus) {

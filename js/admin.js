@@ -2,7 +2,7 @@
 // GameCenter — Panel de administracion (admin.html)
 //
 // RECONSTRUIDO desde cero porque el admin.js original se perdio/sobrescribio.
-// Antes de confiar en esto en produccion, revisa el punto marcado con ⚠️.
+// Antes de confiar en esto en produccion, revisa el punto marcado con ATENCION.
 //
 // CONTROL DE ACCESO ADMIN (confirmado con las Firestore Rules reales):
 // No existe coleccion "admins" separada. El propio documento en
@@ -19,7 +19,7 @@
 // se cambia a mano desde la consola de Firebase o por otro admin ya
 // existente actualizando ese documento.
 //
-// ⚠️ ESTRUCTURA DE DATOS
+// ATENCION: ESTRUCTURA DE DATOS
 // Los campos de "products", "coupons" y "settings" los deduje de como los
 // LEE main.js (js/main.js) y verify-pago-movil-order.js. Si tu version
 // anterior de admin.js guardaba algun campo extra que main.js no usa, no
@@ -27,6 +27,7 @@
 // ============================================================================
 
 import { auth, db } from "./firebase-config.js";
+import { icon } from "./icons.js";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -43,6 +44,7 @@ import {
   deleteDoc,
   query,
   orderBy,
+  limit,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
@@ -119,8 +121,10 @@ onAuthStateChanged(auth, async (user) => {
     setupProductFormToggles();
     loadProducts();
     loadCoupons();
+    loadReviews();
     loadOrders();
     loadSettings();
+    loadMaintenance();
   }
 });
 
@@ -150,7 +154,7 @@ let isNewProductForm = true;
 
 // Cuando el producto es Giftcard: no necesita ID de jugador ni zona (son
 // codigos genericos, no atados a una cuenta), y siempre es recarga
-// automatica (el codigo se entrega solo cuando Shop2Topup confirma). Se
+// automatica (el codigo se entrega solo cuando Central One confirma). Se
 // ocultan esos campos para no confundir al admin con cosas que no aplican.
 function applyGiftcardMode(isGiftcard) {
   document.getElementById("giftcardNotice").style.display = isGiftcard ? "block" : "none";
@@ -208,11 +212,13 @@ function addOptionRow(opt = null) {
       id: `opt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       label: "",
       priceUsd: "",
+      oldPriceUsd: "",
       order: optionRows.length
         ? Math.max(...optionRows.map((o) => (typeof o.order === "number" ? o.order : 0))) + 1
         : 1,
       icon: "",
       shop2topupItemId: "",
+      type: "recarga",
     }
   );
   renderOptionsBox();
@@ -236,9 +242,17 @@ function renderOptionsBox() {
     <div class="field-row option-row" data-id="${o.id}" style="align-items:flex-end; margin-bottom:8px;">
       <div class="field"><label>Nombre</label><input type="text" class="opt-label" value="${o.label || ""}" placeholder="Ej: 100 diamantes" /></div>
       <div class="field"><label>Precio (USD)</label><input type="number" step="0.01" class="opt-price" value="${o.priceUsd ?? ""}" /></div>
+      <div class="field" style="max-width:150px;"><label>Precio anterior (oferta)</label><input type="number" step="0.01" class="opt-oldprice" value="${o.oldPriceUsd ?? ""}" placeholder="Opcional" title="Si es mayor que el precio, la opcion sale en Boss Deals con su % de descuento" /></div>
       <div class="field" style="max-width:90px;"><label>Pos.</label><input type="number" step="1" class="opt-order" value="${typeof o.order === "number" ? o.order : ""}" placeholder="1" /></div>
+      <div class="field" style="max-width:150px;"><label>Tipo</label>
+        <select class="opt-type">
+          <option value="recarga" ${(o.type || "recarga") === "recarga" ? "selected" : ""}>Recarga</option>
+          <option value="membresia" ${o.type === "membresia" ? "selected" : ""}>Membresia</option>
+          <option value="pase" ${o.type === "pase" ? "selected" : ""}>Pase</option>
+        </select>
+      </div>
       <div class="field"><label>Icono (URL, opcional)</label><input type="text" class="opt-icon" value="${o.icon || ""}" /></div>
-      <div class="field"><label>Shop2Topup item ID (si es auto)</label><input type="text" class="opt-s2t" value="${o.shop2topupItemId || ""}" /></div>
+      <div class="field"><label>Central One item ID (si es auto)</label><input type="text" class="opt-s2t" value="${o.shop2topupItemId || ""}" /></div>
       <button type="button" class="btn btn-outline btn-sm remove-option-btn">Quitar</button>
     </div>`
     )
@@ -248,7 +262,9 @@ function renderOptionsBox() {
     const id = row.dataset.id;
     row.querySelector(".opt-label").addEventListener("input", (e) => updateOptionField(id, "label", e.target.value));
     row.querySelector(".opt-price").addEventListener("input", (e) => updateOptionField(id, "priceUsd", e.target.value));
+    row.querySelector(".opt-oldprice").addEventListener("input", (e) => updateOptionField(id, "oldPriceUsd", e.target.value));
     row.querySelector(".opt-order").addEventListener("input", (e) => updateOptionField(id, "order", e.target.value));
+    row.querySelector(".opt-type").addEventListener("change", (e) => updateOptionField(id, "type", e.target.value));
     row.querySelector(".opt-icon").addEventListener("input", (e) => updateOptionField(id, "icon", e.target.value));
     row.querySelector(".opt-s2t").addEventListener("input", (e) => updateOptionField(id, "shop2topupItemId", e.target.value));
     row.querySelector(".remove-option-btn").addEventListener("click", () => removeOptionRow(id));
@@ -344,6 +360,8 @@ document.getElementById("saveProductBtn")?.addEventListener("click", async () =>
       label: String(o.label).trim(),
       priceUsd: parseFloat(o.priceUsd),
       order: Number.isFinite(orderValue) ? orderValue : index,
+      type: ["recarga", "membresia", "pase"].includes(o.type) ? o.type : "recarga",
+      ...(parseFloat(o.oldPriceUsd) > parseFloat(o.priceUsd) ? { oldPriceUsd: parseFloat(o.oldPriceUsd) } : {}),
       ...(o.icon ? { icon: String(o.icon).trim() } : {}),
       ...(o.shop2topupItemId ? { shop2topupItemId: String(o.shop2topupItemId).trim() } : {}),
     };
@@ -522,7 +540,10 @@ async function loadCoupons() {
           <td>${c.discountPercent}%</td>
           <td>${c.usesPerAccount || 1}</td>
           <td>${c.active ? "Activo" : "Inactivo"}</td>
-          <td><button class="btn btn-outline btn-sm toggle-coupon-btn" data-id="${d.id}" data-active="${c.active}">${c.active ? "Desactivar" : "Activar"}</button></td>
+          <td>
+            <button class="btn btn-outline btn-sm toggle-coupon-btn" data-id="${d.id}" data-active="${c.active}">${c.active ? "Desactivar" : "Activar"}</button>
+            <button class="btn btn-outline btn-sm delete-coupon-btn" data-id="${d.id}" style="color:var(--danger);">Eliminar</button>
+          </td>
         </tr>`;
       })
       .join("");
@@ -539,9 +560,78 @@ async function loadCoupons() {
         }
       })
     );
+    tbody.querySelectorAll(".delete-coupon-btn").forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        if (!confirm(`¿Eliminar el cupon ${btn.dataset.id}? Los pedidos que ya lo usaron no se modifican. Esta accion no se puede deshacer.`)) return;
+        btn.disabled = true;
+        try {
+          await deleteDoc(doc(db, "coupons", btn.dataset.id));
+          loadCoupons();
+        } catch (err) {
+          console.error(err);
+          btn.disabled = false;
+          alert("No se pudo eliminar el cupon");
+        }
+      })
+    );
   } catch (err) {
     console.error(err);
     tbody.innerHTML = `<tr><td colspan="5">No se pudieron cargar los cupones.</td></tr>`;
+  }
+}
+
+// ============================================================================
+// RESEÑAS (coleccion "reviews", ver resenas.html). Aqui solo se listan y se
+// eliminan; las reglas de Firestore solo dejan borrar a un admin.
+// ============================================================================
+const rvEsc = (v) =>
+  String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+async function loadReviews() {
+  const tbody = document.getElementById("reviewsTableBody");
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="6">Cargando...</td></tr>`;
+  try {
+    const snap = await getDocs(query(collection(db, "reviews"), orderBy("createdAt", "desc"), limit(200)));
+    if (snap.empty) {
+      tbody.innerHTML = `<tr><td colspan="6">No hay reseñas todavia.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = snap.docs
+      .map((d) => {
+        const r = d.data();
+        const date = r.createdAt?.toDate ? r.createdAt.toDate().toLocaleDateString("es-VE", { day: "numeric", month: "short", year: "numeric" }) : "";
+        const stars = "★".repeat(r.rating || 0) + "☆".repeat(5 - (r.rating || 0));
+        const prod = [r.productName, r.optionLabel].filter(Boolean).join(" · ");
+        return `
+        <tr>
+          <td>${rvEsc(r.userName || "Cliente")}</td>
+          <td style="white-space:nowrap; color:var(--accent-teal);">${stars}</td>
+          <td style="max-width:340px; white-space:normal; overflow-wrap:anywhere;">${rvEsc(r.comment)}</td>
+          <td>${rvEsc(prod)}</td>
+          <td style="white-space:nowrap;">${date}</td>
+          <td><button class="btn btn-outline btn-sm delete-review-btn" data-id="${rvEsc(d.id)}" style="color:var(--danger);">Eliminar</button></td>
+        </tr>`;
+      })
+      .join("");
+
+    tbody.querySelectorAll(".delete-review-btn").forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        if (!confirm("¿Eliminar esta reseña? Desaparecera de la pagina y no se puede deshacer.")) return;
+        btn.disabled = true;
+        try {
+          await deleteDoc(doc(db, "reviews", btn.dataset.id));
+          loadReviews();
+        } catch (err) {
+          console.error(err);
+          btn.disabled = false;
+          alert("No se pudo eliminar la reseña");
+        }
+      })
+    );
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = `<tr><td colspan="6">No se pudieron cargar las reseñas.</td></tr>`;
   }
 }
 
@@ -604,7 +694,7 @@ function renderOrdersTable(profiles) {
         : `<div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
             ${
               o.shop2topupItemId
-                ? `<button class="btn btn-primary btn-sm s2t-btn" data-id="${o._id}">Completar (Shop2Topup)</button>`
+                ? `<button class="btn btn-primary btn-sm s2t-btn" data-id="${o._id}">Completar (Central One)</button>`
                 : ""
             }
             <button class="btn btn-outline btn-sm complete-btn" data-id="${o._id}">Completado</button>
@@ -612,14 +702,14 @@ function renderOrdersTable(profiles) {
           </div>`;
 
       // adminNote es donde verify-pago-movil-order.js / verify-binance-pay-order.js
-      // guardan la razon REAL que dio Shop2Topup cuando la recarga/giftcard
+      // guardan la razon REAL que dio Central One cuando la recarga/giftcard
       // falla (sin stock, precio cambio, etc) -- antes no se mostraba en
       // ningun lado del panel, asi que habia que adivinar. requiresRefundReview
       // marca que el pago ya esta cobrado y hace falta coordinar reembolso o
       // entrega manual con el cliente.
       const noteHtml = o.adminNote
         ? `<div style="margin-top:6px; font-size:0.76rem; color:${o.requiresRefundReview ? "var(--danger)" : "var(--text-muted)"}; max-width:260px;">
-            ${o.requiresRefundReview ? "⚠️ " : ""}${o.adminNote}
+            ${o.requiresRefundReview ? icon("alert") + " " : ""}${o.adminNote}
           </div>`
         : "";
 
@@ -679,12 +769,12 @@ async function handleOrderAction(order, action) {
   }
 
   if (action === "completar_shop2topup") {
-    if (!confirm("Esto va a ejecutar la recarga automatica en Shop2Topup. ¿Continuar?")) return;
+    if (!confirm("Esto va a ejecutar la recarga automatica en Central One. ¿Continuar?")) return;
     try {
-      // create-shop2topup-order.js ahora exige sesion de admin, asi que hay
+      // create-centralone-order.js ahora exige sesion de admin, asi que hay
       // que mandar el token de Firebase igual que en el resto del sitio.
       const idToken = await auth.currentUser.getIdToken();
-      const res = await fetch("/.netlify/functions/create-shop2topup-order", {
+      const res = await fetch("/.netlify/functions/create-centralone-order", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -700,7 +790,7 @@ async function handleOrderAction(order, action) {
       });
       const data = await res.json();
       if (!data.success) {
-        alert(data.message || "No se pudo completar la recarga en Shop2Topup");
+        alert(data.message || "No se pudo completar la recarga en Central One");
         return;
       }
       await updateDoc(doc(db, "orders", order._id), {
@@ -711,7 +801,7 @@ async function handleOrderAction(order, action) {
       loadOrders();
     } catch (err) {
       console.error(err);
-      alert("No se pudo contactar la funcion de Shop2Topup");
+      alert("No se pudo contactar la funcion de Central One");
     }
   }
 }
@@ -761,5 +851,57 @@ document.getElementById("saveSettingsBtn")?.addEventListener("click", async () =
   } catch (err) {
     console.error(err);
     alertBox.innerHTML = '<div class="alert alert-error">No se pudo guardar la configuracion</div>';
+  }
+});
+
+// ============================================================================
+// MANTENIMIENTO
+// Guarda maintenanceEnabled / maintenanceMessage en settings/main. Las paginas
+// publicas leen esos campos (js/maintenance-guard.js) y redirigen a
+// mantenimiento.html mientras este activo.
+// ============================================================================
+function paintMaintState(on) {
+  document.getElementById("maintState")?.classList.toggle("on", on);
+  const title = document.getElementById("maintStateTitle");
+  const sub = document.getElementById("maintStateSub");
+  if (title) title.textContent = on ? "Mantenimiento ACTIVO" : "Sitio en linea";
+  if (sub) sub.textContent = on ? "Los clientes ven la pagina de mantenimiento." : "Los clientes pueden usar la pagina con normalidad.";
+}
+
+async function loadMaintenance() {
+  try {
+    const snap = await getDoc(doc(db, "settings", "main"));
+    const s = snap.exists() ? snap.data() : {};
+    document.getElementById("m_enabled").checked = s.maintenanceEnabled === true;
+    document.getElementById("m_message").value = s.maintenanceMessage || "";
+    paintMaintState(s.maintenanceEnabled === true);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+document.getElementById("m_enabled")?.addEventListener("change", (e) => paintMaintState(e.target.checked));
+
+document.getElementById("saveMaintBtn")?.addEventListener("click", async () => {
+  const alertBox = document.getElementById("maintAlert");
+  const btn = document.getElementById("saveMaintBtn");
+  alertBox.innerHTML = "";
+  btn.disabled = true;
+  try {
+    await setDoc(
+      doc(db, "settings", "main"),
+      {
+        maintenanceEnabled: document.getElementById("m_enabled").checked,
+        maintenanceMessage: document.getElementById("m_message").value.trim(),
+        maintenanceUpdatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    alertBox.innerHTML = '<div class="alert alert-success">Mantenimiento guardado</div>';
+  } catch (err) {
+    console.error(err);
+    alertBox.innerHTML = '<div class="alert alert-error">No se pudo guardar el mantenimiento</div>';
+  } finally {
+    btn.disabled = false;
   }
 });

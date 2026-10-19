@@ -26,7 +26,7 @@
 //                                 "Acceso API" de su panel
 
 const crypto = require("crypto");
-const admin = require("./lib/firebase-admin");
+const admin = require("./lib/firebase");
 
 const db = admin.firestore();
 

@@ -7,7 +7,7 @@
 // anterior, porque la prueba de identidad es el codigo que llego al correo.
 
 const crypto = require("crypto");
-const admin = require("./lib/firebase-admin");
+const admin = require("./lib/firebase");
 
 const db = admin.firestore();
 

@@ -3,8 +3,8 @@
 // alta en Pabilo en vez de la del banco), revalida el precio contra el
 // catalogo real en Firestore (nunca lo que mande el navegador), crea el
 // pedido con permisos de servidor (firebase-admin) y, si el producto es de
-// recarga automatica, dispara Shop2Topup de inmediato reusando
-// lib/shop2topup.js. Misma estructura EXACTA que verify-pago-movil-order.js,
+// recarga automatica, dispara Central One de inmediato reusando
+// lib/centralone.js. Misma estructura EXACTA que verify-pago-movil-order.js,
 // solo cambia: la cuenta de Pabilo que se consulta, y que el monto debe
 // coincidir EXACTO (no hay margen "puede ser mas"), porque en USDT no
 // aplica la logica de redondeo de tasa de cambio en bolivares.
@@ -14,7 +14,7 @@
 //   PABILO_API_KEY (ya la tienes, es la misma cuenta Pabilo para todo)
 //   PABILO_BINANCE_USER_BANK_ID -> el userBankId que te dio Pabilo para tu
 //                                  cuenta Binance (tipo "USER", no banco)
-//   SHOP2TOPUP_API_KEY (ya la tienes)
+//   CENTRALONE_API_KEY (ya la tienes)
 // Opcionales (tienen valor por defecto):
 //   PABILO_BINANCE_MOVEMENT_TYPE (si no la configuras, usa el mismo
 //                                  GENERIC que pago movil -- tu proveedor
@@ -24,9 +24,9 @@
 //                                  redondeo de punto flotante, NO es un
 //                                  margen real como en pago movil)
 
-const admin = require("./lib/firebase-admin");
+const admin = require("./lib/firebase");
 const { verifyPabiloPayment } = require("./lib/pabilo");
-const { createShop2topupOrder, triggerVoucherFollowup } = require("./lib/shop2topup");
+const { createCentralOneOrder, triggerVoucherFollowup } = require("./lib/centralone");
 
 const db = admin.firestore();
 
@@ -178,6 +178,7 @@ exports.handler = async function (event) {
       totalUsd,
       paymentMethod: "binance",
       paymentProof: { transactionId: cleanTxId },
+      isGiftcard: product.category === "giftcards",
       playerGameId: product.requiresId ? String(playerGameId).trim() : "",
       zoneId: product.requiresZoneId ? String(zoneId).trim() : "",
       autoRecharge: !!product.autoRecharge,
@@ -217,7 +218,7 @@ exports.handler = async function (event) {
 
     // ---- 7) Recarga automatica, si el producto la tiene activada ----
     if (product.autoRecharge && option.shop2topupItemId) {
-      const s2tResult = await createShop2topupOrder({
+      const s2tResult = await createCentralOneOrder({
         orderId: orderRef.id,
         subCategoryId: option.shop2topupItemId,
         playerId: orderData.playerGameId,
@@ -256,7 +257,7 @@ exports.handler = async function (event) {
         };
       }
 
-      // Pago verificado pero Shop2Topup fallo (ej. sin stock): el dinero ya
+      // Pago verificado pero Central One fallo (ej. sin stock): el dinero ya
       // esta confirmado, no se pierde. Se deja visible para revision y se
       // avisa por WhatsApp igual -- dejando claro que fue un error de la
       // recarga/giftcard (no del pago) y que hay que contactar para el

@@ -2,9 +2,11 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Mis pedidos — GameCenter</title>
 <link rel="stylesheet" href="css/style.css" />
+<script>try{if(localStorage.getItem("gc_maint")==="1"&&localStorage.getItem("gc_maint_admin")!=="1")location.replace("mantenimiento.html")}catch(e){}</script>
+<script type="module" src="js/maintenance-guard.js"></script>
 </head>
 <body>
 
@@ -26,8 +28,8 @@
   <p style="color:var(--text-muted); font-size:0.9rem; margin-top:-10px; margin-bottom:20px;">
     Tu pedido queda <strong>Recibido</strong> o <strong>En proceso</strong> mientras confirmamos tu pago.
     Si tu producto tiene recarga automatica, en cuanto se verifica el pago vas a ver
-    <strong>✅ Success</strong> de una vez. Si es manual, el admin lo marca como
-    <strong>✅ Success</strong> cuando ya hizo tu recarga. Si dice <strong>Rechazado</strong>, el pago no pudo
+    <strong>Success</strong> de una vez. Si es manual, el admin lo marca como
+    <strong>Success</strong> cuando ya hizo tu recarga. Si dice <strong>Rechazado</strong>, el pago no pudo
     ser verificado.
   </p>
   <div class="order-list" id="orderList"></div>
@@ -54,7 +56,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.6 2h-3.3v13.7c0 1.5-1.2 2.7-2.7 2.7a2.7 2.7 0 0 1-2.7-2.7 2.7 2.7 0 0 1 2.7-2.7c.28 0 .55.04.8.12V9.7a6 6 0 0 0-.8-.05A6 6 0 0 0 4.6 15.7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V8.9a8.2 8.2 0 0 0 4.4 1.27V6.87A4.85 4.85 0 0 1 16.6 2Z"/></svg>
       </a>
     </div>
-    <div class="footer-copy">© 2026 GameCenter · Developed By Zerkov 🧑‍💻</div>
+    <div class="footer-copy">© 2026 GameCenter · Developed By Zerkov <svg class="ic" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/></svg></div>
   </div>
 </footer>
 </body>

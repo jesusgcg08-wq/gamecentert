@@ -9,11 +9,11 @@
 //    una vez -- ya esta "confirmado" por ser dinero interno -- y el pedido
 //    queda "en_proceso" para procesarlo a mano y avisar por WhatsApp.
 //  - Si el producto es AUTOMATICO (autoRecharge): primero se crea la orden
-//    en Shop2Topup, y SOLO si esa orden es aceptada se descuenta el saldo.
-//    Si Shop2Topup la rechaza o falla, no se cobra nada.
+//    en Central One, y SOLO si esa orden es aceptada se descuenta el saldo.
+//    Si Central One la rechaza o falla, no se cobra nada.
 
-const admin = require("./lib/firebase-admin");
-const { createShop2topupOrder, triggerVoucherFollowup } = require("./lib/shop2topup");
+const admin = require("./lib/firebase");
+const { createCentralOneOrder, triggerVoucherFollowup } = require("./lib/centralone");
 
 const db = admin.firestore();
 
@@ -109,6 +109,7 @@ exports.handler = async function (event) {
     totalUsd,
     exchangeRateBsPerUsd: 0,
     paymentMethod: "wallet",
+    isGiftcard: product.category === "giftcards",
     paymentProof: {},
     playerGameId: product.requiresId ? String(playerGameId).trim() : "",
     autoRecharge: !!product.autoRecharge,
@@ -172,14 +173,14 @@ exports.handler = async function (event) {
     };
   }
 
-  // ================= AUTOMATICA: primero Shop2Topup, saldo se descuenta =================
+  // ================= AUTOMATICA: primero Central One, saldo se descuenta =================
   // ================= solo si la orden es aceptada. =================
   const orderRef = db.collection("orders").doc();
   await orderRef.set({ ...baseOrderData, status: "en_proceso" });
 
   let s2tResult;
   try {
-    s2tResult = await createShop2topupOrder({
+    s2tResult = await createCentralOneOrder({
       orderId: orderRef.id,
       subCategoryId: option.shop2topupItemId,
       playerId: baseOrderData.playerGameId,
@@ -188,7 +189,7 @@ exports.handler = async function (event) {
     });
   } catch (err) {
     console.error(err);
-    await orderRef.update({ status: "rechazado", adminNote: "Error de conexion con Shop2Topup, no se descargo el saldo." });
+    await orderRef.update({ status: "rechazado", adminNote: "Error de conexion con Central One, no se descargo el saldo." });
     return fail(502, "No se pudo procesar la recarga automatica, intenta de nuevo o elige otro metodo de pago.", {
       code: "RECHARGE_FAILED",
       orderId: orderRef.id,
@@ -198,7 +199,7 @@ exports.handler = async function (event) {
   const s2tSucceeded = s2tResult.success && s2tResult.order && s2tResult.order.internal_status !== "rechazado";
 
   if (!s2tSucceeded) {
-    // La orden en Shop2Topup fue rechazada (ej. ID de jugador invalido, sin
+    // La orden en Central One fue rechazada (ej. ID de jugador invalido, sin
     // stock, etc.) o la funcion fallo -- NO se descuenta saldo, asi que aqui
     // no hace falta hablar de reembolso (no hubo cobro), solo avisar y dar
     // la opcion de contactar por WhatsApp si el cliente quiere completarlo
@@ -212,7 +213,7 @@ exports.handler = async function (event) {
     });
   }
 
-  // Shop2Topup acepto la orden: ahora si se descuenta el saldo, dentro de
+  // Central One acepto la orden: ahora si se descuenta el saldo, dentro de
   // una transaccion para evitar pagos dobles en paralelo.
   let newBalanceUsd;
   try {
@@ -233,11 +234,11 @@ exports.handler = async function (event) {
     });
   } catch (err) {
     // Caso muy raro: el saldo cambio justo entre el chequeo inicial y aqui
-    // (ej. dos pagos casi simultaneos). La recarga en Shop2Topup YA se hizo,
+    // (ej. dos pagos casi simultaneos). La recarga en Central One YA se hizo,
     // asi que no la revertimos -- se deja visible para que el admin revise
     // el saldo manualmente en vez de perder la recarga ya entregada.
     console.error(err);
-    await orderRef.update({ adminNote: "Recarga entregada por Shop2Topup pero hubo un problema al descontar el saldo, revisar manualmente." });
+    await orderRef.update({ adminNote: "Recarga entregada por Central One pero hubo un problema al descontar el saldo, revisar manualmente." });
     newBalanceUsd = null;
   }
 

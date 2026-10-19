@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Reseñas — GameCenter</title>
+<link rel="stylesheet" href="css/style.css" />
+<script>try{if(localStorage.getItem("gc_maint")==="1"&&localStorage.getItem("gc_maint_admin")!=="1")location.replace("mantenimiento.html")}catch(e){}</script>
+<script type="module" src="js/maintenance-guard.js"></script>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="index.html" class="brand-block">
+      <img src="assets/icongamecenter.png" alt="GameCenter" class="brand-icon" />
+      <div>
+        <div class="brand">Game<span>Center</span></div>
+        <div class="brand-location">Carora - Venezuela</div>
+      </div>
+    </a>
+    <div class="nav-links" id="navAccountArea"></div>
+  </div>
+</nav>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="rvGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#2dd4bf"/></linearGradient></defs></svg>
+
+<main class="container rv-page">
+  <header class="rv-hero">
+    <div class="rv-eyebrow"><span></span>Reseñas de clientes<span></span></div>
+    <h1>Opiniones de la <em>comunidad</em></h1>
+    <p>Conoce la experiencia real de nuestros compradores. Solo pueden opinar clientes con pedidos completados en GameCenter.</p>
+  </header>
+
+  <section class="rv-summary" id="rvSummary" aria-label="Resumen de calificaciones">
+    <div class="rv-sum-cta">
+      <div class="rv-shield"></div>
+      <h3>Compras 100% verificadas</h3>
+      <p>Solo los usuarios con un pedido completado en nuestra tienda pueden escribir una valoración.</p>
+      <button type="button" class="btn btn-primary btn-full" id="rvWriteBtn"></button>
+    </div>
+    <div class="rv-sum-bars" id="rvBars"></div>
+    <div class="rv-sum-score" id="rvScore"></div>
+  </section>
+
+  <div class="rv-toolbar">
+    <div class="rv-count" id="rvCount"></div>
+    <button type="button" class="rv-clear" id="rvClear" hidden>Mostrar todas</button>
+  </div>
+  <div class="rv-grid" id="rvGrid"></div>
+  <nav class="rv-pager" id="rvPager" aria-label="Paginas"></nav>
+</main>
+
+<div class="modal-backdrop" id="rvModalBackdrop">
+  <div class="modal rv-modal" id="rvModal" role="dialog" aria-modal="true"></div>
+</div>
+
+<script type="module" src="js/resenas.js"></script>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <img src="assets/icongamecenter.png" alt="GameCenter" class="footer-logo" />
+    <div class="footer-support">
+      Soporte inmediato ·
+      <a href="https://wa.me/584264300345" target="_blank" rel="noopener" class="footer-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.39 1.26 4.82L2 22l5.4-1.35a9.9 9.9 0 0 0 4.64 1.18h.01c5.46 0 9.91-4.45 9.91-9.92 0-2.65-1.03-5.14-2.9-7.01A9.86 9.86 0 0 0 12.04 2Zm5.8 14.02c-.24.68-1.4 1.3-1.93 1.35-.5.05-1.13.07-1.83-.12-.42-.11-.96-.3-1.66-.6-2.92-1.26-4.82-4.2-4.97-4.4-.15-.2-1.19-1.58-1.19-3.02s.75-2.15 1.02-2.44c.26-.29.57-.36.76-.36.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.58.81 2 .88 2.14.07.15.12.32.02.51-.1.19-.15.3-.29.47-.15.17-.31.37-.44.5-.15.15-.3.31-.13.6.17.29.75 1.24 1.62 2.01 1.11.99 2.05 1.3 2.34 1.44.29.15.46.13.63-.08.17-.2.72-.84.91-1.13.19-.29.38-.24.63-.14.26.09 1.63.77 1.91.91.29.15.48.22.55.34.07.13.07.73-.17 1.41Z"/></svg>
+        WhatsApp
+      </a>
+    </div>
+    <div class="footer-social-title">Síguenos en redes sociales</div>
+    <div class="footer-social">
+      <a href="https://www.instagram.com/game.centercarora?igsh=b204aDNsNzVpcGU0" target="_blank" rel="noopener" class="social-icon" aria-label="Instagram">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/></svg>
+      </a>
+      <a href="https://www.tiktok.com/@gamecenter2024?_r=1&_t=ZS-96xVWBRHlnp" target="_blank" rel="noopener" class="social-icon" aria-label="TikTok">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.6 2h-3.3v13.7c0 1.5-1.2 2.7-2.7 2.7a2.7 2.7 0 0 1-2.7-2.7 2.7 2.7 0 0 1 2.7-2.7c.28 0 .55.04.8.12V9.7a6 6 0 0 0-.8-.05A6 6 0 0 0 4.6 15.7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V8.9a8.2 8.2 0 0 0 4.4 1.27V6.87A4.85 4.85 0 0 1 16.6 2Z"/></svg>
+      </a>
+    </div>
+    <div class="footer-copy">© 2026 GameCenter · Developed By Zerkov <svg class="ic" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/></svg></div>
+  </div>
+</footer>
+</body>
+</html>

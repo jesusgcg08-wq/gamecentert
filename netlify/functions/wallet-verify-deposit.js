@@ -3,7 +3,7 @@
 // servidor (firebase-admin). Es el mismo patron que verify-pago-movil-order.js,
 // solo que en vez de crear un pedido de producto, suma saldo a users/{uid}.
 
-const admin = require("./lib/firebase-admin");
+const admin = require("./lib/firebase");
 const { verifyPabiloPayment } = require("./lib/pabilo");
 
 const db = admin.firestore();

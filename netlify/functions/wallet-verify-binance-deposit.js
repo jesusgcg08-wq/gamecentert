@@ -4,7 +4,7 @@
 // verify-binance-pay-order.js) y el monto debe coincidir EXACTO en USD (no
 // hay tasa de cambio de por medio, 1 USDT = 1 USD).
 
-const admin = require("./lib/firebase-admin");
+const admin = require("./lib/firebase");
 const { verifyPabiloPayment } = require("./lib/pabilo");
 
 const db = admin.firestore();
