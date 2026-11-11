@@ -1,10 +1,11 @@
-Coloca aqui estos archivos (mismos nombres, en minusculas):
+Imagenes y videos de la pagina (nombres en minusculas, no cambiarlos):
 
-hero1.png
-hero2.png
-hero3.mp4
-hero4.mp4
-binanceqr.png   (captura o imagen del QR de tu Binance Pay)
+hero1.mp4 ... hero4.mp4   videos del carrusel de inicio (index.html)
+logo-gc-blanco.png        logo GC de la barra de arriba, pie de pagina y carga
+icongamecenter.png        icono y logo de la pagina de mantenimiento
+logopagomovil.png         logo de Pago Movil (metodos de pago)
+logobinance.png           logo de Binance (metodos de pago)
+pagomovilqr.png           QR de Pago Movil
+binanceqr.png             QR de Binance
 
-El carrusel del hero y el boton "Ver QR" ya estan programados para
-buscarlos automaticamente en esta carpeta (frontend/assets/).
+Para cambiar uno, reemplaza el archivo con el mismo nombre.

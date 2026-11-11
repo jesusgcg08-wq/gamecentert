@@ -1,116 +1,102 @@
-# GameCenter — Guia de instalacion y despliegue
+# GameCenter — gamecentervzla.com
 
-## 0. Importante sobre PHP y Netlify
+Tienda de recargas de juegos y giftcards. Página estática (HTML + CSS + JS) con
+**Firebase** (cuentas y base de datos) y **Netlify Functions** (todo lo que
+necesita llaves secretas: pagos, recargas, correos).
 
-Me pediste PHP como opcion, pero Netlify **no ejecuta PHP** (solo sirve
-archivos estaticos y funciones serverless en Node.js). Como tambien
-mencionaste JavaScript como opcion, arme todo el backend en **Node.js +
-Express + MongoDB**, que si funciona perfecto con Netlify (el frontend
-en Netlify, el backend en otro servicio gratuito compatible, ver paso 3).
+No hay servidor propio: Netlify sirve la página y corre las funciones.
 
-Estructura del proyecto:
+## Estructura
 
 ```
-gamecenter/
-  backend/     -> API en Node.js + Express + MongoDB (NO va en Netlify)
-  frontend/    -> HTML + CSS + JS (esto SI va en Netlify)
+/                     páginas del sitio (se publican tal cual)
+  index.html          inicio (carrusel con hero1–4.mp4)
+  catalogo-completo   catálogo de productos
+  producto.html       ficha del producto, verificar ID y pagar
+  login / register    cuenta del cliente
+  dashboard.html      "Mis pedidos"
+  wallet.html         saldo del cliente (recargar y pagar con saldo)
+  resenas.html        reseñas
+  admin.html          panel de administración (solo usuarios con role "admin")
+  mantenimiento.html  se muestra cuando el modo mantenimiento está activo
+  catalogo.html       catálogo de Central One (página aparte, no enlazada)
+  cobertura.json      datos de cobertura de Central One (no lo usa ninguna página)
+assets/               logos, QR de pago y videos del carrusel
+css/style.css         estilos de todo el sitio
+js/                   lógica de cada página
+  firebase-config.js  conexión a Firebase (proyecto "gamecenternuevo")
+  config.js           sin uso (quedó del backend viejo en Node/Mongo)
+netlify/functions/    funciones del servidor (ver abajo)
+  lib/                código compartido: Firebase admin, Central One, Pabilo,
+                      Binance, Shop2Topup
+netlify.toml          configuración de Netlify
 ```
 
----
+## Funciones del servidor (`netlify/functions/`)
 
-## 1. Crear tu base de datos en MongoDB Atlas (gratis)
+| Función | Para qué sirve |
+|---|---|
+| `validate-player` | Verifica el ID del jugador antes de pagar (Central One). |
+| `verify-pago-movil-order` + `-background` | Verifica un pago móvil con Pabilo y crea el pedido. La parte lenta corre en segundo plano para no gastar créditos de Pabilo dos veces. |
+| `verify-binance-pay-order` | Verifica un pago por Binance y crea el pedido. |
+| `wallet-verify-deposit` / `wallet-verify-binance-deposit` | Acredita saldo a la Wallet (pago móvil o Binance). |
+| `wallet-pay-order` | Paga un pedido con saldo de la Wallet. |
+| `create-centralone-order` | Botón del panel admin: hace la recarga en Central One. |
+| `check-centralone-order-status` | Consulta el estado de una recarga (solo el dueño del pedido). |
+| `centralone-webhook` | Central One avisa cuando una orden cambia; guarda los códigos. |
+| `centralone-voucher-followup-background` | Pregunta a Central One hasta que el código de la giftcard esté listo. |
+| `*-shop2topup-*` | Proveedor anterior (Shop2Topup). Central One lo reemplazó; se mantiene por pedidos viejos. |
+| `request-password-reset` / `verify-password-reset-code` | "Olvidé mi contraseña" con código por correo (EmailJS). |
 
-1. Entra a https://www.mongodb.com/cloud/atlas/register y crea una cuenta.
-2. Crea un cluster gratuito (M0).
-3. En "Database Access" crea un usuario con contrasena (guardala).
-4. En "Network Access" agrega la IP `0.0.0.0/0` (permitir desde cualquier lugar), asi tu backend puede conectarse desde donde lo despliegues.
-5. En "Database" -> "Connect" -> "Drivers", copia la cadena de conexion. Se ve asi:
-   ```
-   mongodb+srv://usuario:password@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
-   ```
-6. Agrega el nombre de tu base al final, por ejemplo `.../gamecenter?retryWrites=true...`
+Todas las funciones revalidan precios y permisos contra Firestore; nunca confían
+en lo que manda el navegador.
 
----
+## Variables de entorno (en Netlify → Site settings → Environment variables)
 
-## 2. Configurar y probar el backend en tu computador
+Nunca van en el código ni en GitHub.
+
+| Variable | Qué es |
+|---|---|
+| `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | Cuenta de servicio de Firebase (o todo junto en `FIREBASE_SERVICE_ACCOUNT_BASE64`). |
+| `CENTRALONE_API_KEY` | Llave de Central One (`co_live_...`). Necesita los permisos catalog:read, orders:read, orders:write y **codes:read**. |
+| `CENTRALONE_WEBHOOK_SECRET` (y `_PREVIOUS` al rotarla) | Secreto para validar los webhooks de Central One (`whsec_...`). |
+| `PABILO_API_KEY`, `PABILO_USER_BANK_ID`, `PABILO_MOVEMENT_TYPE` | Verificación de pago móvil. |
+| `PABILO_BINANCE_USER_BANK_ID`, `PABILO_BINANCE_MOVEMENT_TYPE` | Verificación de pagos Binance vía Pabilo. |
+| `PABILO_AMOUNT_TOLERANCE_BS`, `PABILO_BINANCE_AMOUNT_TOLERANCE_USD` | Margen aceptado en el monto (opcional). |
+| `BINANCE_API_KEY`, `BINANCE_API_SECRET` | API normal de la cuenta Binance. |
+| `EMAILJS_PRIVATE_KEY` | Correo de recuperación de contraseña. |
+| `SHOP2TOPUP_API_KEY`, `SHOP2TOPUP_WEBHOOK_SECRET` | Solo para el proveedor anterior. |
+
+## Webhooks a registrar
+
+- Central One → Integración → Webhooks:
+  `https://gamecentervzla.com/.netlify/functions/centralone-webhook`
+
+## Probar en la computadora
+
+Necesitas Netlify CLI (`npm install -g netlify-cli`) una sola vez. Luego:
 
 ```bash
-cd backend
 npm install
-cp .env.example .env
+netlify dev
 ```
 
-Abre `.env` y coloca:
-- `MONGODB_URI`: la cadena que copiaste de Atlas.
-- `JWT_SECRET` y `JWT_ADMIN_SECRET`: inventa dos textos largos y aleatorios (diferentes entre si).
-- `ADMIN_ACCESS_KEY`: la clave que usaras tu para entrar a `/admin.html`. Nadie mas debe saberla.
-- `FRONTEND_URL`: por ahora déjalo como `http://localhost:5500` (o el puerto que uses para abrir el frontend).
+Abre la dirección que muestra `netlify dev` (normalmente http://localhost:8888).
+Usa las mismas variables de entorno que el sitio en Netlify.
 
-Luego:
+## Publicar
+
+El código está en GitHub (`origin`). Después de hacer commit:
+
 ```bash
-npm start
+git push
 ```
 
-Si todo esta bien veras: `Conectado a MongoDB` y `Servidor GameCenter escuchando en puerto 4000`.
+Si el sitio de Netlify está conectado al repositorio, publica solo. Si no,
+publica a mano con `netlify deploy --prod`.
 
----
+## Panel de administración
 
-## 3. Desplegar el backend (Render, gratis)
-
-Netlify no puede correr este backend, asi que lo subimos a Render:
-
-1. Sube la carpeta `backend/` a un repositorio de GitHub.
-2. Entra a https://render.com, crea cuenta y elige "New Web Service".
-3. Conecta tu repositorio.
-4. Build command: `npm install` — Start command: `npm start`
-5. En "Environment", agrega las mismas variables de tu `.env` (MONGODB_URI, JWT_SECRET, JWT_ADMIN_SECRET, ADMIN_ACCESS_KEY, FRONTEND_URL: pon aqui la URL que te dara Netlify, ej `https://gamecenter.netlify.app`).
-6. Al terminar, Render te da una URL como `https://gamecenter-backend.onrender.com`.
-
-(Railway.app funciona igual de facil si prefieres esa opcion.)
-
----
-
-## 4. Configurar el frontend
-
-Abre `frontend/js/config.js` y cambia la URL por la de tu backend ya desplegado:
-
-```js
-const API_BASE = "https://gamecenter-backend.onrender.com/api";
-```
-
-Coloca tus archivos de imagenes/video dentro de `frontend/assets/`:
-`hero1.png`, `hero2.png`, `hero3.mp4`, `hero4.mp4`, `binanceqr.png`.
-
----
-
-## 5. Subir el frontend a Netlify
-
-1. Sube la carpeta `frontend/` a un repositorio de GitHub (o arrastra la carpeta directo en https://app.netlify.com/drop para probar rapido).
-2. En Netlify: "Add new site" -> "Import an existing project" -> selecciona el repositorio -> Publish directory: `frontend` (o `.` si subiste solo esa carpeta).
-3. Netlify te da una URL, ej `https://gamecenter.netlify.app`.
-4. Regresa a Render y actualiza `FRONTEND_URL` con esa URL exacta (esto es importante para que la seguridad CORS deje pasar tus peticiones).
-
----
-
-## 6. Usar el panel de administracion
-
-Entra a `https://tu-sitio.netlify.app/admin.html`, ingresa la clave que pusiste en `ADMIN_ACCESS_KEY`. Ahi puedes:
-- Agregar productos con imagen, categoria, region, varias opciones de recarga y marcar si es evento especial.
-- Crear o eliminar cupones de descuento.
-- Ver todos los pedidos y cambiar su estado (Recibido / En proceso / Completado / Rechazado) a medida que gestionas la recarga manual por WhatsApp.
-- Configurar la tasa de cambio, los datos de Pago Movil, tu Binance ID y el numero de WhatsApp donde te llegan los pedidos.
-
-## 7. Seguridad ya incluida
-
-- Contrasenas de clientes cifradas con bcrypt (nunca se guardan en texto plano).
-- Sesiones firmadas con JWT, separadas entre clientes y administrador.
-- Limite de intentos de inicio de sesion (rate limiting) contra ataques de fuerza bruta.
-- Cabeceras HTTP endurecidas con Helmet.
-- CORS restringido solo a tu dominio de Netlify.
-- El panel admin no aparece enlazado en ningun lado del sitio publico; solo quien conozca la ruta y la clave puede entrar.
-
-## 8. Recomendaciones extra (opcionales, para mas adelante)
-
-- Cambia `ADMIN_ACCESS_KEY` de vez en cuando.
-- Considera agregar HTTPS forzado (Netlify y Render ya lo hacen automatico).
-- Cuando quieras agregar mas metodos de pago o mas paises, el codigo ya esta preparado para extenderse en `backend/models/Settings.js` y `backend/routes/settings.js`.
+Entra a `/admin.html` con una cuenta cuyo documento `users/{uid}` en Firestore
+tenga `role: "admin"`. Desde ahí se manejan productos, cupones, pedidos,
+recargas en Central One, tasa de cambio, datos de pago y el modo mantenimiento.
