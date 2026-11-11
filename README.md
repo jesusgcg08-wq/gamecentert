@@ -25,7 +25,6 @@ assets/               logos, QR de pago y videos del carrusel
 css/style.css         estilos de todo el sitio
 js/                   lógica de cada página
   firebase-config.js  conexión a Firebase (proyecto "gamecenternuevo")
-  config.js           sin uso (quedó del backend viejo en Node/Mongo)
 netlify/functions/    funciones del servidor (ver abajo)
   lib/                código compartido: Firebase admin, Central One, Pabilo,
                       Binance, Shop2Topup
