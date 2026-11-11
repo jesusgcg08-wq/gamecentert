@@ -11,10 +11,17 @@ const admin = require("./lib/firebase");
 
 const db = admin.firestore();
 
-const MAX_ATTEMPTS = 5;
+const MAX_ATTEMPTS = 5; // por codigo
+const MAX_FAILS_PER_DAY = 10; // por correo en 24 h (mismo valor que request-password-reset.js)
 
 function hashCode(code) {
   return crypto.createHash("sha256").update(code).digest("hex");
+}
+
+function mismoHash(a, b) {
+  const x = Buffer.from(String(a || ""), "utf8");
+  const y = Buffer.from(String(b || ""), "utf8");
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
 
 function fail(statusCode, message, extra = {}) {
@@ -50,34 +57,48 @@ exports.handler = async function (event) {
   // usuario debe reintentar o pedir un codigo nuevo.
   const invalidCodeResponse = fail(400, "Codigo invalido o vencido. Solicita uno nuevo.");
 
-  if (!snap.exists) return invalidCodeResponse;
+  // Todo dentro de una transaccion: revisar intentos, comparar y sumar el
+  // intento fallido es UN solo paso. Antes eran pasos separados y alguien
+  // podia mandar cientos de intentos a la vez y todos pasaban el limite de 5.
+  // El codigo correcto se marca usado en la misma transaccion (un solo uso).
+  let resultado;
+  try {
+    resultado = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(codeDocRef);
+      if (!snap.exists) return { ok: false };
+      const data = snap.data();
+      if (data.used) return { ok: false };
+      const expiresAtMs = data.expiresAt?.toMillis?.() || 0;
+      if (Date.now() > expiresAtMs) return { ok: false };
+      if ((data.attempts || 0) >= MAX_ATTEMPTS || (data.dailyFails || 0) >= MAX_FAILS_PER_DAY) {
+        return { ok: false, demasiados: true };
+      }
+      if (!mismoHash(data.codeHash, hashCode(code))) {
+        tx.update(codeDocRef, {
+          attempts: admin.firestore.FieldValue.increment(1),
+          dailyFails: admin.firestore.FieldValue.increment(1),
+        });
+        return { ok: false };
+      }
+      tx.update(codeDocRef, { used: true });
+      return { ok: true, uid: data.uid };
+    });
+  } catch (err) {
+    console.error("[verify-password-reset-code] error en la transaccion:", err);
+    return fail(500, "No se pudo verificar el codigo, intenta de nuevo.");
+  }
 
-  const data = snap.data();
-  if (data.used) return invalidCodeResponse;
-
-  const expiresAtMs = data.expiresAt?.toMillis?.() || 0;
-  if (Date.now() > expiresAtMs) return invalidCodeResponse;
-
-  if (data.attempts >= MAX_ATTEMPTS) {
+  if (resultado.demasiados) {
     return fail(400, "Demasiados intentos con este codigo. Solicita uno nuevo.");
   }
-
-  if (data.codeHash !== hashCode(code)) {
-    await codeDocRef.update({ attempts: admin.firestore.FieldValue.increment(1) });
-    return invalidCodeResponse;
-  }
+  if (!resultado.ok) return invalidCodeResponse;
 
   try {
-    await admin.auth().updateUser(data.uid, { password: newPassword });
+    await admin.auth().updateUser(resultado.uid, { password: newPassword });
   } catch (err) {
     console.error("[verify-password-reset-code] error actualizando contraseña:", err);
-    return fail(500, "No se pudo actualizar la contraseña, intenta de nuevo.");
+    return fail(500, "No se pudo actualizar la contraseña. Solicita un codigo nuevo.");
   }
-
-  // Codigo de un solo uso: se marca usado en vez de borrarse, para que un
-  // reintento con el mismo codigo (doble click, etc.) caiga siempre en el
-  // mismo mensaje generico de "invalido" en vez de comportarse distinto.
-  await codeDocRef.update({ used: true });
 
   return { statusCode: 200, body: JSON.stringify({ success: true, message: "Contraseña actualizada." }) };
 };

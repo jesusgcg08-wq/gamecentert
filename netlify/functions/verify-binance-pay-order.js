@@ -27,6 +27,7 @@
 const admin = require("./lib/firebase");
 const { verifyPabiloPayment } = require("./lib/pabilo");
 const { createCentralOneOrder, triggerVoucherFollowup } = require("./lib/centralone");
+const { opcionReal, porcentajeCupon, textoCorto, referenciaValida, pagoUsadoRef, dentroDelLimite } = require("./lib/seguridad");
 
 const db = admin.firestore();
 
@@ -48,10 +49,17 @@ exports.handler = async function (event) {
     return fail(400, "Body invalido");
   }
 
-  const { productId, optionId, couponCode, transactionId, playerGameId, zoneId, extraFieldValue } = body;
+  const { productId, optionId, couponCode } = body;
+  const transactionId = referenciaValida(body.transactionId);
+  const playerGameId = textoCorto(body.playerGameId, 60);
+  const zoneId = textoCorto(body.zoneId, 30);
+  const extraFieldValue = textoCorto(body.extraFieldValue, 120);
 
-  if (!productId || !optionId || !transactionId) {
+  if (!productId || typeof productId !== "string" || !optionId || !transactionId) {
     return fail(400, "Faltan datos del pedido o del pago");
+  }
+  if (playerGameId === null || zoneId === null || extraFieldValue === null) {
+    return fail(400, "Datos del pedido no validos");
   }
 
   // ---- 1) Quien hace el pedido se determina por el token de Firebase que
@@ -68,13 +76,19 @@ exports.handler = async function (event) {
     return fail(401, "Sesion invalida, inicia sesion de nuevo");
   }
 
+  // Limite de verificaciones de pago por cuenta: evita que alguien pruebe
+  // referencias al azar hasta "encontrar" el pago de otra persona.
+  if (!(await dentroDelLimite(db, "pago", uid, 12, 30 * 60 * 1000))) {
+    return fail(429, "Hiciste demasiados intentos seguidos. Espera unos minutos o escribenos por WhatsApp.");
+  }
+
   // ---- 2) Producto/opcion reales tal como estan en Firestore hoy. ----
   const productSnap = await db.collection("products").doc(productId).get();
   if (!productSnap.exists || productSnap.data().active !== true) {
     return fail(404, "Producto no disponible");
   }
   const product = productSnap.data();
-  const option = (product.options || {})[optionId];
+  const option = opcionReal(product, optionId);
   if (!option) return fail(404, "Opcion de recarga no valida");
 
   if (product.requiresId && (!playerGameId || !String(playerGameId).trim())) {
@@ -96,15 +110,15 @@ exports.handler = async function (event) {
     if (couponSnap.exists && couponSnap.data().active === true) {
       const redemptionSnap = await db.collection("couponRedemptions").doc(`${uid}_${code}`).get();
       if (!redemptionSnap.exists) {
-        discountPercent = couponSnap.data().discountPercent;
-        appliedCouponCode = code;
+        discountPercent = porcentajeCupon(couponSnap.data().discountPercent);
+        appliedCouponCode = discountPercent ? code : null;
       }
     }
   }
 
   // Binance Pay liquida en USDT, 1:1 con USD -- a diferencia de Pago Movil
   // aqui NO se multiplica por la tasa de cambio.
-  const totalUsd = option.priceUsd * (1 - discountPercent / 100);
+  const totalUsd = Number(option.priceUsd) * (1 - discountPercent / 100);
   const cleanTxId = String(transactionId).trim();
 
   // ---- 4) Candado momentaneo por referencia: evita que un doble click o
@@ -193,17 +207,31 @@ exports.handler = async function (event) {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
+    // Pedido + registro PERMANENTE del pago usado, en una sola transaccion:
+    // si ese pago ya se uso (en otro pedido o en un deposito a la wallet),
+    // no se crea el pedido. No depende solo de lo que diga Pabilo.
     const orderRef = db.collection("orders").doc();
-    const batch = db.batch();
-    batch.set(orderRef, orderData);
-    if (appliedCouponCode) {
-      batch.set(db.collection("couponRedemptions").doc(`${uid}_${appliedCouponCode}`), {
-        uid,
-        code: appliedCouponCode,
-        usedAt: admin.firestore.FieldValue.serverTimestamp(),
+    const usadoRef = pagoUsadoRef(db, "bn", pabiloResult.reference || cleanTxId);
+    try {
+      await db.runTransaction(async (tx) => {
+        const usadoSnap = await tx.get(usadoRef);
+        if (usadoSnap.exists) throw new Error("PAGO_YA_USADO");
+        tx.create(usadoRef, { uid, type: "order", orderId: orderRef.id, usedAt: admin.firestore.FieldValue.serverTimestamp() });
+        tx.set(orderRef, orderData);
+        if (appliedCouponCode) {
+          tx.set(db.collection("couponRedemptions").doc(`${uid}_${appliedCouponCode}`), {
+            uid,
+            code: appliedCouponCode,
+            usedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
       });
+    } catch (err) {
+      if (err.message === "PAGO_YA_USADO") {
+        return fail(409, "Este comprobante ya fue verificado en otro pedido.");
+      }
+      throw err;
     }
-    await batch.commit();
 
     const receipt = {
       orderId: orderRef.id,

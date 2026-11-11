@@ -159,7 +159,7 @@ async function triggerVoucherFollowup(firestoreOrderId, shop2topupOrderId) {
   try {
     const res = await fetch(targetUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-gc-interno": require("./seguridad").claveInterna() },
       body: JSON.stringify({ firestoreOrderId, shop2topupOrderId }),
     });
     console.log(`[triggerVoucherFollowup] Disparado hacia ${targetUrl} -- status HTTP: ${res.status}`);

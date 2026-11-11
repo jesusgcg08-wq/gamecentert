@@ -8,12 +8,15 @@
 //  - Si el producto es MANUAL (sin autoRecharge): el saldo se descuenta de
 //    una vez -- ya esta "confirmado" por ser dinero interno -- y el pedido
 //    queda "en_proceso" para procesarlo a mano y avisar por WhatsApp.
-//  - Si el producto es AUTOMATICO (autoRecharge): primero se crea la orden
-//    en Central One, y SOLO si esa orden es aceptada se descuenta el saldo.
-//    Si Central One la rechaza o falla, no se cobra nada.
+//  - Si el producto es AUTOMATICO (autoRecharge): el saldo se APARTA primero
+//    (se descuenta en una transaccion junto con la creacion del pedido) y
+//    despues se pide la recarga a Central One. Si Central One la rechaza, el
+//    saldo se devuelve solo. Antes se cobraba DESPUES de la recarga, y varios
+//    pedidos en paralelo podian llevarse varias recargas pagando una sola.
 
 const admin = require("./lib/firebase");
 const { createCentralOneOrder, triggerVoucherFollowup } = require("./lib/centralone");
+const { opcionReal, porcentajeCupon, saldoNumero, textoCorto } = require("./lib/seguridad");
 
 const db = admin.firestore();
 
@@ -33,8 +36,11 @@ exports.handler = async function (event) {
     return fail(400, "Body invalido");
   }
 
-  const { productId, optionId, couponCode, playerGameId, zoneId, extraFieldValue } = body;
-  if (!productId || !optionId) {
+  const { productId, optionId, couponCode } = body;
+  const playerGameId = textoCorto(body.playerGameId, 60);
+  const zoneId = textoCorto(body.zoneId, 30);
+  const extraFieldValue = textoCorto(body.extraFieldValue, 120);
+  if (!productId || typeof productId !== "string" || !optionId || playerGameId === null || zoneId === null || extraFieldValue === null) {
     return fail(400, "Faltan datos del pedido");
   }
 
@@ -57,7 +63,7 @@ exports.handler = async function (event) {
     return fail(404, "Producto no disponible");
   }
   const product = productSnap.data();
-  const option = (product.options || {})[optionId];
+  const option = opcionReal(product, optionId);
   if (!option) return fail(404, "Opcion de recarga no valida");
 
   if (product.requiresId && (!playerGameId || !String(playerGameId).trim())) {
@@ -79,20 +85,20 @@ exports.handler = async function (event) {
     if (couponSnap.exists && couponSnap.data().active === true) {
       const redemptionSnap = await db.collection("couponRedemptions").doc(`${uid}_${code}`).get();
       if (!redemptionSnap.exists) {
-        discountPercent = couponSnap.data().discountPercent;
-        appliedCouponCode = code;
+        discountPercent = porcentajeCupon(couponSnap.data().discountPercent);
+        appliedCouponCode = discountPercent ? code : null;
       }
     }
   }
 
-  const totalUsd = option.priceUsd * (1 - discountPercent / 100);
+  const totalUsd = Math.round(Number(option.priceUsd) * (1 - discountPercent / 100) * 100) / 100;
 
   // ---- 4) Saldo real del cliente, siempre leido de Firestore (nunca del
   // navegador). Solo lo confirmamos aqui; el descuento real se hace mas
   // abajo, dentro de una transaccion, para que dos pagos simultaneos no se
   // pisen entre si. ----
   const userSnapCheck = await db.collection("users").doc(uid).get();
-  const currentBalance = userSnapCheck.exists ? userSnapCheck.data().walletBalanceUsd || 0 : 0;
+  const currentBalance = userSnapCheck.exists ? saldoNumero(userSnapCheck.data().walletBalanceUsd) : 0;
   if (currentBalance < totalUsd) {
     return fail(400, "No tienes saldo suficiente en tu wallet para este pedido.");
   }
@@ -112,6 +118,7 @@ exports.handler = async function (event) {
     isGiftcard: product.category === "giftcards",
     paymentProof: {},
     playerGameId: product.requiresId ? String(playerGameId).trim() : "",
+    zoneId: product.requiresZoneId ? zoneId : "",
     autoRecharge: !!product.autoRecharge,
     shop2topupItemId: product.autoRecharge ? option.shop2topupItemId || null : null,
     extraFieldName: product.extraField ? product.extraField.fieldName : "",
@@ -129,35 +136,58 @@ exports.handler = async function (event) {
     date: new Date().toISOString(),
   };
 
-  // ================= MANUAL: se descuenta de una vez, queda en_proceso =================
-  if (!product.autoRecharge) {
-    const orderRef = db.collection("orders").doc();
-    let newBalanceUsd;
-    try {
-      await db.runTransaction(async (tx) => {
-        const userRef = db.collection("users").doc(uid);
-        const userSnap = await tx.get(userRef);
-        const balance = userSnap.exists ? userSnap.data().walletBalanceUsd || 0 : 0;
-        if (balance < totalUsd) throw new Error("INSUFFICIENT_BALANCE");
-        newBalanceUsd = balance - totalUsd;
+  // ---- Cobro: descuenta el saldo, crea el pedido y marca el cupon como
+  // usado, TODO en una sola transaccion. Si dos pedidos llegan a la vez,
+  // Firestore los pone en fila: el segundo ya ve el saldo descontado. ----
+  const userRef = db.collection("users").doc(uid);
+  const orderRef = db.collection("orders").doc();
+  const cuponRef = appliedCouponCode ? db.collection("couponRedemptions").doc(`${uid}_${appliedCouponCode}`) : null;
+  let newBalanceUsd;
+  try {
+    await db.runTransaction(async (tx) => {
+      const userSnap = await tx.get(userRef);
+      const cuponSnap = cuponRef ? await tx.get(cuponRef) : null;
+      const balance = userSnap.exists ? saldoNumero(userSnap.data().walletBalanceUsd) : 0;
+      if (balance < totalUsd) throw new Error("INSUFFICIENT_BALANCE");
+      if (cuponSnap && cuponSnap.exists) throw new Error("COUPON_USED");
+      newBalanceUsd = Math.round((balance - totalUsd) * 100) / 100;
 
-        tx.set(orderRef, { ...baseOrderData, status: "en_proceso" });
-        tx.update(userRef, { walletBalanceUsd: newBalanceUsd });
-        if (appliedCouponCode) {
-          tx.set(db.collection("couponRedemptions").doc(`${uid}_${appliedCouponCode}`), {
-            uid,
-            code: appliedCouponCode,
-            usedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-        }
-      });
-    } catch (err) {
-      if (err.message === "INSUFFICIENT_BALANCE") {
-        return fail(400, "No tienes saldo suficiente en tu wallet para este pedido.");
+      tx.set(orderRef, { ...baseOrderData, status: "en_proceso", walletCharged: true });
+      tx.set(userRef, { walletBalanceUsd: newBalanceUsd }, { merge: true });
+      if (cuponRef) {
+        tx.create(cuponRef, { uid, code: appliedCouponCode, usedAt: admin.firestore.FieldValue.serverTimestamp() });
       }
-      console.error(err);
-      return fail(500, "No se pudo procesar el pago, intenta de nuevo");
+    });
+  } catch (err) {
+    if (err.message === "INSUFFICIENT_BALANCE") {
+      return fail(400, "No tienes saldo suficiente en tu wallet para este pedido.");
     }
+    if (err.message === "COUPON_USED") {
+      return fail(400, "Ese cupon ya lo usaste. Quitalo e intenta de nuevo.");
+    }
+    console.error(err);
+    return fail(500, "No se pudo procesar el pago, intenta de nuevo");
+  }
+
+  // Devuelve el saldo apartado (cuando Central One rechaza la recarga).
+  // Revisa walletCharged dentro de la transaccion para no devolver dos veces.
+  async function devolverSaldo(nota) {
+    let saldoFinal = null;
+    await db.runTransaction(async (tx) => {
+      const userSnap = await tx.get(userRef);
+      const orderSnap = await tx.get(orderRef);
+      if (!orderSnap.exists || orderSnap.data().walletCharged !== true) return;
+      const balance = userSnap.exists ? saldoNumero(userSnap.data().walletBalanceUsd) : 0;
+      saldoFinal = Math.round((balance + totalUsd) * 100) / 100;
+      tx.set(userRef, { walletBalanceUsd: saldoFinal }, { merge: true });
+      tx.update(orderRef, { status: "rechazado", walletCharged: false, walletRefunded: true, adminNote: nota });
+      if (cuponRef) tx.delete(cuponRef);
+    });
+    return saldoFinal;
+  }
+
+  // ================= MANUAL: ya se desconto, queda en_proceso =================
+  if (!product.autoRecharge) {
 
     return {
       statusCode: 200,
@@ -173,25 +203,29 @@ exports.handler = async function (event) {
     };
   }
 
-  // ================= AUTOMATICA: primero Central One, saldo se descuenta =================
-  // ================= solo si la orden es aceptada. =================
-  const orderRef = db.collection("orders").doc();
-  await orderRef.set({ ...baseOrderData, status: "en_proceso" });
-
+  // ================= AUTOMATICA: saldo ya apartado, ahora Central One =================
   let s2tResult;
   try {
     s2tResult = await createCentralOneOrder({
       orderId: orderRef.id,
       subCategoryId: option.shop2topupItemId,
       playerId: baseOrderData.playerGameId,
+      zoneId: baseOrderData.zoneId,
       extraFieldName: baseOrderData.extraFieldName,
       extraFieldValue: baseOrderData.extraFieldValue,
     });
   } catch (err) {
+    // Error de conexion: NO sabemos si Central One alcanzo a hacer la
+    // recarga, asi que el saldo queda apartado y el admin lo revisa (si se
+    // devolviera solo, alguien podria quedarse con la recarga gratis).
     console.error(err);
-    await orderRef.update({ status: "rechazado", adminNote: "Error de conexion con Central One, no se descargo el saldo." });
-    return fail(502, "No se pudo procesar la recarga automatica, intenta de nuevo o elige otro metodo de pago.", {
+    await orderRef.update({
+      adminNote: "Error de conexion con Central One. El saldo quedo descontado: revisar en Central One si la recarga se hizo; si no, devolver el saldo.",
+      requiresRefundReview: true,
+    });
+    return fail(502, "No pudimos confirmar tu recarga. Tu saldo quedo apartado mientras lo revisamos: escribenos por WhatsApp y lo resolvemos.", {
       code: "RECHARGE_FAILED",
+      needsWhatsapp: true,
       orderId: orderRef.id,
     });
   }
@@ -205,42 +239,24 @@ exports.handler = async function (event) {
     // la opcion de contactar por WhatsApp si el cliente quiere completarlo
     // de otra forma.
     const note = s2tResult.message || s2tResult.order?.status || "La recarga automatica fue rechazada.";
-    await orderRef.update({ status: "rechazado", adminNote: note });
-    return fail(400, `No se pudo procesar tu recarga (posible falta de stock): ${note}. No se descarto saldo de tu Wallet.`, {
+    let saldoDevuelto = null;
+    try {
+      saldoDevuelto = await devolverSaldo(`${note} (saldo devuelto automaticamente)`);
+    } catch (err) {
+      console.error("[wallet-pay-order] no se pudo devolver el saldo:", err);
+      await orderRef
+        .update({ status: "rechazado", adminNote: `${note}. OJO: no se pudo devolver el saldo solo, devolverlo a mano.`, requiresRefundReview: true })
+        .catch(() => {});
+    }
+    return fail(400, "No se pudo procesar tu recarga (posible falta de stock). El saldo se devolvio a tu Wallet.", {
       code: "RECHARGE_FAILED",
       needsWhatsapp: true,
       orderId: orderRef.id,
+      newBalanceUsd: saldoDevuelto,
     });
   }
 
-  // Central One acepto la orden: ahora si se descuenta el saldo, dentro de
-  // una transaccion para evitar pagos dobles en paralelo.
-  let newBalanceUsd;
-  try {
-    await db.runTransaction(async (tx) => {
-      const userRef = db.collection("users").doc(uid);
-      const userSnap = await tx.get(userRef);
-      const balance = userSnap.exists ? userSnap.data().walletBalanceUsd || 0 : 0;
-      if (balance < totalUsd) throw new Error("INSUFFICIENT_BALANCE");
-      newBalanceUsd = balance - totalUsd;
-      tx.update(userRef, { walletBalanceUsd: newBalanceUsd });
-      if (appliedCouponCode) {
-        tx.set(db.collection("couponRedemptions").doc(`${uid}_${appliedCouponCode}`), {
-          uid,
-          code: appliedCouponCode,
-          usedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      }
-    });
-  } catch (err) {
-    // Caso muy raro: el saldo cambio justo entre el chequeo inicial y aqui
-    // (ej. dos pagos casi simultaneos). La recarga en Central One YA se hizo,
-    // asi que no la revertimos -- se deja visible para que el admin revise
-    // el saldo manualmente en vez de perder la recarga ya entregada.
-    console.error(err);
-    await orderRef.update({ adminNote: "Recarga entregada por Central One pero hubo un problema al descontar el saldo, revisar manualmente." });
-    newBalanceUsd = null;
-  }
+  // Central One acepto la orden (el saldo ya se habia descontado arriba).
 
   const finalStatus = "completado";
   const updatePayload = {

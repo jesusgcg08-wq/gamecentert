@@ -12,6 +12,7 @@
 const admin = require("./lib/firebase");
 const { verifyPabiloPayment } = require("./lib/pabilo");
 const { createCentralOneOrder, triggerVoucherFollowup, waitForVouchers } = require("./lib/centralone");
+const { claveInternaOk, pagoUsadoRef } = require("./lib/seguridad");
 
 const db = admin.firestore();
 
@@ -20,6 +21,12 @@ const db = admin.firestore();
 const AMOUNT_TOLERANCE_BS = parseFloat(process.env.PABILO_AMOUNT_TOLERANCE_BS || "10");
 
 exports.handler = async function (event) {
+  // Solo la puede disparar verify-pago-movil-order.js (lleva la clave interna).
+  if (!claveInternaOk(event)) {
+    console.warn("[pago-movil-background] llamada sin clave interna, ignorada");
+    return { statusCode: 403, body: "No autorizado" };
+  }
+
   let body;
   try {
     body = JSON.parse(event.body);
@@ -27,22 +34,32 @@ exports.handler = async function (event) {
     return { statusCode: 400, body: "Body invalido" };
   }
 
-  const { pendingId } = body;
-  if (!pendingId) return { statusCode: 400, body: "Falta pendingId" };
+  const pendingId = typeof body.pendingId === "string" ? body.pendingId : "";
+  if (!/^[A-Za-z0-9]{10,40}$/.test(pendingId)) return { statusCode: 400, body: "Falta pendingId" };
 
   const pendingRef = db.collection("pendingVerifications").doc(pendingId);
-  const pendingSnap = await pendingRef.get();
-  if (!pendingSnap.exists) {
-    console.warn(`[pago-movil-background] pendingVerification ${pendingId} no existe`);
-    return { statusCode: 200, body: "ignorado" };
-  }
-  const pending = pendingSnap.data();
-  console.log(`[pago-movil-background] Procesando pendingId=${pendingId} referencia=${pending.bankReference}`);
 
-  // Si por lo que sea ya se resolvio (doble disparo), no se hace nada de nuevo.
-  if (pending.verificationState !== "verificando") {
-    return { statusCode: 200, body: "ya estaba resuelto" };
+  // Se "toma" la verificacion en una transaccion (verificando -> procesando):
+  // si llegan dos disparos a la vez, solo uno sigue. Antes los dos llamaban a
+  // Pabilo y podian crear dos pedidos con un solo pago.
+  let pending;
+  try {
+    pending = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(pendingRef);
+      if (!snap.exists) return null;
+      const data = snap.data();
+      if (data.verificationState !== "verificando") return null;
+      tx.update(pendingRef, { verificationState: "procesando" });
+      return data;
+    });
+  } catch (err) {
+    console.error("[pago-movil-background] no se pudo tomar la verificacion:", err);
+    return { statusCode: 200, body: "error al tomar" };
   }
+  if (!pending) {
+    return { statusCode: 200, body: "ignorado o ya resuelto" };
+  }
+  console.log(`[pago-movil-background] Procesando pendingId=${pendingId} referencia=${pending.bankReference}`);
 
   const {
     uid,
@@ -151,17 +168,36 @@ exports.handler = async function (event) {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
+    // Pedido + registro PERMANENTE del pago usado, en una sola transaccion:
+    // si ese pago ya se uso (en otro pedido o en un deposito a la wallet),
+    // no se crea el pedido. No depende solo de lo que diga Pabilo.
     const orderRef = db.collection("orders").doc();
-    const batch = db.batch();
-    batch.set(orderRef, orderData);
-    if (appliedCouponCode) {
-      batch.set(db.collection("couponRedemptions").doc(`${uid}_${appliedCouponCode}`), {
-        uid,
-        code: appliedCouponCode,
-        usedAt: admin.firestore.FieldValue.serverTimestamp(),
+    const usadoRef = pagoUsadoRef(db, "pm", pabiloResult.reference || bankReference);
+    try {
+      await db.runTransaction(async (tx) => {
+        const usadoSnap = await tx.get(usadoRef);
+        if (usadoSnap.exists) throw new Error("PAGO_YA_USADO");
+        tx.create(usadoRef, { uid, type: "order", orderId: orderRef.id, usedAt: admin.firestore.FieldValue.serverTimestamp() });
+        tx.set(orderRef, orderData);
+        if (appliedCouponCode) {
+          tx.set(db.collection("couponRedemptions").doc(`${uid}_${appliedCouponCode}`), {
+            uid,
+            code: appliedCouponCode,
+            usedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
       });
+    } catch (err) {
+      if (err.message === "PAGO_YA_USADO") {
+        await resolve({
+          verificationState: "listo",
+          success: false,
+          message: "Este comprobante ya fue verificado en otro pedido.",
+        });
+        return { statusCode: 200, body: "rechazado (pago ya usado)" };
+      }
+      throw err;
     }
-    await batch.commit();
 
     const receipt = {
       orderId: orderRef.id,

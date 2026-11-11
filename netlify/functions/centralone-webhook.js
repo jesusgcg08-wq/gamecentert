@@ -32,7 +32,7 @@ exports.handler = async function (event) {
   const timestamp = h["x-centralone-timestamp"];
 
   // Rechaza avisos con mas de 5 minutos (evita reenvios de avisos capturados).
-  if (!timestamp || Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) {
+  if (!timestamp || !Number.isFinite(Number(timestamp)) || Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) {
     console.warn("[webhook] Timestamp ausente o fuera de ventana");
     return { statusCode: 401, body: JSON.stringify({ error: "Invalid timestamp" }) };
   }

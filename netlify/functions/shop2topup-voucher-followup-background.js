@@ -28,6 +28,10 @@ function sleep(ms) {
 }
 
 exports.handler = async function (event) {
+  // Solo la disparan nuestras propias funciones (llevan la clave interna).
+  if (!require("./lib/seguridad").claveInternaOk(event)) {
+    return { statusCode: 403, body: "No autorizado" };
+  }
   let body;
   try {
     body = JSON.parse(event.body);

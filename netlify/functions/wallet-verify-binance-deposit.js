@@ -6,6 +6,7 @@
 
 const admin = require("./lib/firebase");
 const { verifyPabiloPayment } = require("./lib/pabilo");
+const { montoValido, saldoNumero, referenciaValida, pagoUsadoRef, dentroDelLimite } = require("./lib/seguridad");
 
 const db = admin.firestore();
 
@@ -29,10 +30,13 @@ exports.handler = async function (event) {
     return fail(400, "Body invalido");
   }
 
-  const { amountUsd, transactionId } = body;
+  // Monto: tiene que ser un NUMERO (un texto como "1" pegaba el saldo como
+  // texto en vez de sumarlo). ID de transaccion: solo letras/numeros.
+  const amountUsd = montoValido(body.amountUsd, { min: 0.1, max: 5000 });
+  const transactionId = referenciaValida(body.transactionId);
 
-  if (!amountUsd || amountUsd <= 0 || !transactionId) {
-    return fail(400, "Faltan datos del deposito");
+  if (amountUsd === null || !transactionId) {
+    return fail(400, "Faltan datos del deposito o no son validos");
   }
 
   // ---- 1) El uid SIEMPRE sale del token de Firebase, nunca del body. ----
@@ -46,6 +50,12 @@ exports.handler = async function (event) {
     uid = decoded.uid;
   } catch {
     return fail(401, "Sesion invalida, inicia sesion de nuevo");
+  }
+
+  // Limite de verificaciones de pago por cuenta: evita que alguien pruebe
+  // referencias al azar hasta "encontrar" el pago de otra persona.
+  if (!(await dentroDelLimite(db, "pago", uid, 12, 30 * 60 * 1000))) {
+    return fail(429, "Hiciste demasiados intentos seguidos. Espera unos minutos o escribenos por WhatsApp.");
   }
 
   const cleanTxId = String(transactionId).trim();
@@ -119,14 +129,28 @@ exports.handler = async function (event) {
 
     // ---- 5) Se acredita el saldo en una transaccion para que dos depositos
     // simultaneos del mismo usuario no se pisen entre si. ----
+    // En la MISMA transaccion se marca el pago como usado para siempre: si
+    // ya se habia usado (en un pedido o en otro deposito), no se acredita.
     const userRef = db.collection("users").doc(uid);
+    const usadoRef = pagoUsadoRef(db, "bn", pabiloResult.reference || cleanTxId);
     let newBalanceUsd = amountUsd;
-    await db.runTransaction(async (tx) => {
-      const userSnap = await tx.get(userRef);
-      const currentBalance = userSnap.exists ? userSnap.data().walletBalanceUsd || 0 : 0;
-      newBalanceUsd = currentBalance + amountUsd;
-      tx.set(userRef, { walletBalanceUsd: newBalanceUsd }, { merge: true });
-    });
+    try {
+      await db.runTransaction(async (tx) => {
+        const usadoSnap = await tx.get(usadoRef);
+        if (usadoSnap.exists) throw new Error("PAGO_YA_USADO");
+        const userSnap = await tx.get(userRef);
+        const currentBalance = userSnap.exists ? saldoNumero(userSnap.data().walletBalanceUsd) : 0;
+        newBalanceUsd = Math.round((currentBalance + amountUsd) * 100) / 100;
+        tx.create(usadoRef, { uid, type: "wallet_deposit_binance", depositId: depositRef.id, usedAt: admin.firestore.FieldValue.serverTimestamp() });
+        tx.set(userRef, { walletBalanceUsd: newBalanceUsd }, { merge: true });
+      });
+    } catch (err) {
+      if (err.message === "PAGO_YA_USADO") {
+        await depositRef.update({ status: "rechazado", adminNote: "Ese pago ya se habia usado antes. No se acredito saldo." });
+        return fail(409, "Este comprobante ya fue verificado antes.");
+      }
+      throw err;
+    }
 
     return {
       statusCode: 200,

@@ -56,6 +56,12 @@ const STATUS_LABELS = {
   rechazado: "Rechazado",
 };
 
+// Convierte cualquier dato en texto seguro antes de meterlo en el HTML.
+// IMPORTANTE: los nombres, telefonos e IDs los escribe el cliente; sin esto,
+// un cliente podria ponerse de nombre un codigo que se ejecute en el panel.
+const h = (v) =>
+  String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
 // ============================================================================
 // Acceso (login + verificacion de admin)
 // ============================================================================
@@ -241,10 +247,10 @@ function renderOptionsBox() {
   box.innerHTML = optionRows
     .map(
       (o) => `
-    <div class="field-row option-row" data-id="${o.id}" style="align-items:flex-end; margin-bottom:8px;">
-      <div class="field"><label>Nombre</label><input type="text" class="opt-label" value="${o.label || ""}" placeholder="Ej: 100 diamantes" /></div>
-      <div class="field"><label>Precio (USD)</label><input type="number" step="0.01" class="opt-price" value="${o.priceUsd ?? ""}" /></div>
-      <div class="field" style="max-width:150px;"><label>Precio anterior (oferta)</label><input type="number" step="0.01" class="opt-oldprice" value="${o.oldPriceUsd ?? ""}" placeholder="Opcional" title="Si es mayor que el precio, la opcion sale en Boss Deals con su % de descuento" /></div>
+    <div class="field-row option-row" data-id="${h(o.id)}" style="align-items:flex-end; margin-bottom:8px;">
+      <div class="field"><label>Nombre</label><input type="text" class="opt-label" value="${h(o.label)}" placeholder="Ej: 100 diamantes" /></div>
+      <div class="field"><label>Precio (USD)</label><input type="number" step="0.01" class="opt-price" value="${h(o.priceUsd)}" /></div>
+      <div class="field" style="max-width:150px;"><label>Precio anterior (oferta)</label><input type="number" step="0.01" class="opt-oldprice" value="${h(o.oldPriceUsd)}" placeholder="Opcional" title="Si es mayor que el precio, la opcion sale en Boss Deals con su % de descuento" /></div>
       <div class="field" style="max-width:90px;"><label>Pos.</label><input type="number" step="1" class="opt-order" value="${typeof o.order === "number" ? o.order : ""}" placeholder="1" /></div>
       <div class="field" style="max-width:150px;"><label>Tipo</label>
         <select class="opt-type">
@@ -253,8 +259,8 @@ function renderOptionsBox() {
           <option value="pase" ${o.type === "pase" ? "selected" : ""}>Pase</option>
         </select>
       </div>
-      <div class="field"><label>Icono (URL, opcional)</label><input type="text" class="opt-icon" value="${o.icon || ""}" /></div>
-      <div class="field"><label>Central One item ID (si es auto)</label><input type="text" class="opt-s2t" value="${o.shop2topupItemId || ""}" /></div>
+      <div class="field"><label>Icono (URL, opcional)</label><input type="text" class="opt-icon" value="${h(o.icon)}" /></div>
+      <div class="field"><label>Central One item ID (si es auto)</label><input type="text" class="opt-s2t" value="${h(o.shop2topupItemId)}" /></div>
       <button type="button" class="btn btn-outline btn-sm remove-option-btn">Quitar</button>
     </div>`
     )
@@ -455,21 +461,21 @@ function renderProductsTable() {
   tbody.innerHTML = sorted
     .map((p) => {
       const optionsText = Object.values(p.options || {})
-        .map((o) => `${o.label} ($${o.priceUsd})`)
+        .map((o) => `${h(o.label)} ($${h(o.priceUsd)})`)
         .join(", ");
       return `
       <tr>
-        <td><img src="${p.image}" alt="" style="width:40px; height:40px; object-fit:cover; border-radius:6px;" /></td>
-        <td>${p.name}</td>
-        <td>${p.category}</td>
-        <td>${p.region || "-"}</td>
+        <td><img src="${h(p.image)}" alt="" style="width:40px; height:40px; object-fit:cover; border-radius:6px;" /></td>
+        <td>${h(p.name)}</td>
+        <td>${h(p.category)}</td>
+        <td>${h(p.region || "-")}</td>
         <td>${typeof p.position === "number" ? p.position : "-"}</td>
         <td style="max-width:220px; font-size:0.8rem;">${optionsText}</td>
         <td>${p.isSpecialEvent ? "Si" : "No"}</td>
         <td>${p.requiresId ? "Si" : "No"}</td>
         <td>
-          <button class="btn btn-outline btn-sm edit-product-btn" data-id="${p._id}">Editar</button>
-          <button class="btn btn-outline btn-sm delete-product-btn" data-id="${p._id}" style="color:var(--danger);">Eliminar</button>
+          <button class="btn btn-outline btn-sm edit-product-btn" data-id="${h(p._id)}">Editar</button>
+          <button class="btn btn-outline btn-sm delete-product-btn" data-id="${h(p._id)}" style="color:var(--danger);">Eliminar</button>
         </td>
       </tr>`;
     })
@@ -538,13 +544,13 @@ async function loadCoupons() {
         const c = d.data();
         return `
         <tr>
-          <td>${d.id}</td>
-          <td>${c.discountPercent}%</td>
-          <td>${c.usesPerAccount || 1}</td>
+          <td>${h(d.id)}</td>
+          <td>${h(c.discountPercent)}%</td>
+          <td>${h(c.usesPerAccount || 1)}</td>
           <td>${c.active ? "Activo" : "Inactivo"}</td>
           <td>
-            <button class="btn btn-outline btn-sm toggle-coupon-btn" data-id="${d.id}" data-active="${c.active}">${c.active ? "Desactivar" : "Activar"}</button>
-            <button class="btn btn-outline btn-sm delete-coupon-btn" data-id="${d.id}" style="color:var(--danger);">Eliminar</button>
+            <button class="btn btn-outline btn-sm toggle-coupon-btn" data-id="${h(d.id)}" data-active="${c.active === true}">${c.active ? "Desactivar" : "Activar"}</button>
+            <button class="btn btn-outline btn-sm delete-coupon-btn" data-id="${h(d.id)}" style="color:var(--danger);">Eliminar</button>
           </td>
         </tr>`;
       })
@@ -683,8 +689,8 @@ function renderOrdersTable(profiles) {
       const profile = profiles[o.userId];
       const proof =
         o.paymentMethod === "binance"
-          ? `ID Tx: ${o.paymentProof?.transactionId || "-"}`
-          : `Ref: ${o.paymentProof?.last6 || "-"} (Tel: ${o.paymentProof?.payerPhone || "-"})`;
+          ? `ID Tx: ${h(o.paymentProof?.transactionId || "-")}`
+          : `Ref: ${h(o.paymentProof?.last6 || "-")} (Tel: ${h(o.paymentProof?.payerPhone || "-")})`;
       const total =
         o.paymentMethod === "binance"
           ? `$${(o.totalUsd || 0).toFixed(2)} USDT`
@@ -696,11 +702,11 @@ function renderOrdersTable(profiles) {
         : `<div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
             ${
               o.shop2topupItemId
-                ? `<button class="btn btn-primary btn-sm s2t-btn" data-id="${o._id}">Completar (Central One)</button>`
+                ? `<button class="btn btn-primary btn-sm s2t-btn" data-id="${h(o._id)}">Completar (Central One)</button>`
                 : ""
             }
-            <button class="btn btn-outline btn-sm complete-btn" data-id="${o._id}">Completado</button>
-            <button class="btn btn-outline btn-sm reject-btn" data-id="${o._id}" style="color:var(--danger);">Rechazado</button>
+            <button class="btn btn-outline btn-sm complete-btn" data-id="${h(o._id)}">Completado</button>
+            <button class="btn btn-outline btn-sm reject-btn" data-id="${h(o._id)}" style="color:var(--danger);">Rechazado</button>
           </div>`;
 
       // adminNote es donde verify-pago-movil-order.js / verify-binance-pay-order.js
@@ -711,20 +717,20 @@ function renderOrdersTable(profiles) {
       // entrega manual con el cliente.
       const noteHtml = o.adminNote
         ? `<div style="margin-top:6px; font-size:0.76rem; color:${o.requiresRefundReview ? "var(--danger)" : "var(--text-muted)"}; max-width:260px;">
-            ${o.requiresRefundReview ? icon("alert") + " " : ""}${o.adminNote}
+            ${o.requiresRefundReview ? icon("alert") + " " : ""}${h(o.adminNote)}
           </div>`
         : "";
 
       return `
       <tr>
-        <td>${profile ? profile.name : o.userId}</td>
-        <td>${o.productNameSnapshot} (${o.optionLabelSnapshot})</td>
-        <td>${o.playerGameId || "-"}</td>
+        <td>${h(profile ? profile.name : o.userId)}</td>
+        <td>${h(o.productNameSnapshot)} (${h(o.optionLabelSnapshot)})</td>
+        <td>${h(o.playerGameId || "-")}</td>
         <td>${o.paymentMethod === "binance" ? "Binance" : "Pago Movil"}</td>
         <td style="font-size:0.8rem;">${proof}</td>
         <td>${total}</td>
         <td>
-          <div class="status-pill status-${o.status}">${STATUS_LABELS[o.status] || o.status}</div>
+          <div class="status-pill status-${h(o.status)}">${h(STATUS_LABELS[o.status] || o.status)}</div>
           ${actionsHtml}
           ${noteHtml}
         </td>

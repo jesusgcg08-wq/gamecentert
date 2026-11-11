@@ -48,7 +48,8 @@ exports.handler = async function (event) {
   const { order, error } = await checkOrderStatusDetailed(centralId);
   if (!order) {
     console.error(`[check-centralone-order-status] pedido ${orderRef.id} (Central One ${centralId}):`, error);
-    return reply({ success: false, message: "No se pudo consultar el estado", detail: error });
+    // Solo el codigo y el estado HTTP (el dashboard los usa para el aviso); nunca el mensaje crudo.
+    return reply({ success: false, message: "No se pudo consultar el estado", detail: { code: error && error.code, http: error && error.http } });
   }
 
   // Se guarda lo que Central One ya entrego, asi el dashboard lo ve aunque el

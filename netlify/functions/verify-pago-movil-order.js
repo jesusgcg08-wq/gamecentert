@@ -15,6 +15,7 @@
 // "verificando" a "listo".
 
 const admin = require("./lib/firebase");
+const { opcionReal, porcentajeCupon, textoCorto, referenciaValida, claveInterna, dentroDelLimite } = require("./lib/seguridad");
 
 const db = admin.firestore();
 
@@ -34,10 +35,18 @@ async function mainHandler(event) {
     return fail(400, "Body invalido");
   }
 
-  const { productId, optionId, couponCode, bankReference, payerPhone, playerGameId, zoneId, extraFieldValue } = body;
+  const { productId, optionId, couponCode } = body;
+  const bankReference = referenciaValida(body.bankReference);
+  const payerPhone = textoCorto(body.payerPhone, 20);
+  const playerGameId = textoCorto(body.playerGameId, 60);
+  const zoneId = textoCorto(body.zoneId, 30);
+  const extraFieldValue = textoCorto(body.extraFieldValue, 120);
 
-  if (!productId || !optionId || !bankReference || !payerPhone) {
+  if (!productId || typeof productId !== "string" || !optionId || !bankReference || !payerPhone) {
     return fail(400, "Faltan datos del pedido o del pago");
+  }
+  if (playerGameId === null || zoneId === null || extraFieldValue === null) {
+    return fail(400, "Datos del pedido no validos");
   }
 
   // ---- 1) El uid SIEMPRE sale del token de Firebase, nunca del body. ----
@@ -54,13 +63,19 @@ async function mainHandler(event) {
     return fail(401, "Sesion invalida, inicia sesion de nuevo");
   }
 
+  // Limite de verificaciones de pago por cuenta: evita que alguien pruebe
+  // referencias al azar hasta "encontrar" el pago de otra persona.
+  if (!(await dentroDelLimite(db, "pago", uid, 12, 30 * 60 * 1000))) {
+    return fail(429, "Hiciste demasiados intentos seguidos. Espera unos minutos o escribenos por WhatsApp.");
+  }
+
   // ---- 2) Producto/opcion reales tal como estan en Firestore hoy. ----
   const productSnap = await db.collection("products").doc(productId).get();
   if (!productSnap.exists || productSnap.data().active !== true) {
     return fail(404, "Producto no disponible");
   }
   const product = productSnap.data();
-  const option = (product.options || {})[optionId];
+  const option = opcionReal(product, optionId);
   if (!option) return fail(404, "Opcion de recarga no valida");
 
   if (product.requiresId && (!playerGameId || !String(playerGameId).trim())) {
@@ -82,16 +97,20 @@ async function mainHandler(event) {
     if (couponSnap.exists && couponSnap.data().active === true) {
       const redemptionSnap = await db.collection("couponRedemptions").doc(`${uid}_${code}`).get();
       if (!redemptionSnap.exists) {
-        discountPercent = couponSnap.data().discountPercent;
-        appliedCouponCode = code;
+        discountPercent = porcentajeCupon(couponSnap.data().discountPercent);
+        appliedCouponCode = discountPercent ? code : null;
       }
     }
   }
 
-  const totalUsd = option.priceUsd * (1 - discountPercent / 100);
+  const totalUsd = Number(option.priceUsd) * (1 - discountPercent / 100);
 
   const settingsSnap = await db.collection("settings").doc("main").get();
-  const exchangeRateBsPerUsd = settingsSnap.exists ? settingsSnap.data().exchangeRateBsPerUsd || 0 : 0;
+  const exchangeRateBsPerUsd = settingsSnap.exists ? Number(settingsSnap.data().exchangeRateBsPerUsd) || 0 : 0;
+  // Sin tasa, el total en Bs daria 0 y cualquier pago "alcanzaria".
+  if (!(exchangeRateBsPerUsd > 0)) {
+    return fail(500, "La tasa de cambio no esta configurada, contacta a soporte.");
+  }
   const expectedTotalBs = totalUsd * exchangeRateBsPerUsd;
 
   // ---- 4) Candado por referencia -- se crea aqui y NO se libera en esta
@@ -115,6 +134,9 @@ async function mainHandler(event) {
   // ---- 5) Documento de verificacion pendiente: el frontend lo escucha con
   // onSnapshot para saber cuando termino. ----
   const pendingRef = db.collection("pendingVerifications").doc();
+  // Si esto falla, se libera el candado (antes quedaba trancada para siempre
+  // esa referencia y nadie podia volver a usarla).
+  try {
   await pendingRef.set({
     uid,
     productId,
@@ -139,6 +161,10 @@ async function mainHandler(event) {
     verificationState: "verificando",
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
+  } catch (err) {
+    await lockRef.delete().catch(() => {});
+    throw err;
+  }
 
   // ---- 6) Se dispara la funcion en background SIN esperar a que termine
   // (mismo patron que triggerVoucherFollowup): solo se espera la
@@ -150,7 +176,9 @@ async function mainHandler(event) {
     try {
       const dispatchRes = await fetch(`${baseUrl}/.netlify/functions/verify-pago-movil-order-background`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // Clave interna: sin ella la funcion en segundo plano no hace nada
+        // (asi nadie de afuera la puede disparar).
+        headers: { "Content-Type": "application/json", "x-gc-interno": claveInterna() },
         body: JSON.stringify({ pendingId: pendingRef.id }),
       });
       console.log(`[verify-pago-movil-order] Background disparado -- status HTTP: ${dispatchRes.status}`);

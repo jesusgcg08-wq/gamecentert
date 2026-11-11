@@ -11,6 +11,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const hasVouchers = (d) => Array.isArray(d?.vouchers) && d.vouchers.length > 0;
 
 exports.handler = async function (event) {
+  // Solo la disparan nuestras propias funciones (llevan la clave interna).
+  if (!require("./lib/seguridad").claveInternaOk(event)) {
+    return { statusCode: 403, body: "No autorizado" };
+  }
   let body;
   try { body = JSON.parse(event.body); } catch { return { statusCode: 400, body: "Body invalido" }; }
 

@@ -222,7 +222,7 @@ async function triggerVoucherFollowup(firestoreOrderId, centralOneOrderId) {
   try {
     const res = await fetch(targetUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-gc-interno": require("./seguridad").claveInterna() },
       body: JSON.stringify({ firestoreOrderId, centralOneOrderId }),
     });
     console.log(`[triggerVoucherFollowup] ${targetUrl} -- HTTP ${res.status}`);
