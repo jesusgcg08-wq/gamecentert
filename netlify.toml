@@ -7,3 +7,55 @@
 [dev]
   framework = "#static"
   publish = "."
+# ---- Google (SEO) ----
+# Mapa del sitio: lo arma una funcion con los productos activos de Firestore.
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "/.netlify/functions/sitemap"
+  status = 200
+  force = true
+
+# ---- Archivos internos: no se publican (responden "no existe") ----
+# catalogo.html tiene precios de costo de Central One: abrelo desde la carpeta.
+[[redirects]]
+  from = "/catalogo.html"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/catalogo"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/cobertura.json"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/README.md"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/package.json"
+  to = "/404.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/assets/LEEME.txt"
+  to = "/404.html"
+  status = 404
+  force = true
+
+# Codigo de las funciones del servidor (no confundir con /.netlify/functions/)
+[[redirects]]
+  from = "/netlify/*"
+  to = "/404.html"
+  status = 404
+  force = true

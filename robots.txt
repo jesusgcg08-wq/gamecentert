@@ -1,0 +1,5 @@
+# GameCenter — instrucciones para buscadores
+User-agent: *
+Allow: /
+
+Sitemap: https://gamecentervzla.com/sitemap.xml

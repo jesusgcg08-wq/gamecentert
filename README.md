@@ -19,9 +19,14 @@ No hay servidor propio: Netlify sirve la página y corre las funciones.
   resenas.html        reseñas
   admin.html          panel de administración (solo usuarios con role "admin")
   mantenimiento.html  se muestra cuando el modo mantenimiento está activo
-  catalogo.html       catálogo de Central One (página aparte, no enlazada)
-  cobertura.json      datos de cobertura de Central One (no lo usa ninguna página)
-assets/               logos, QR de pago y videos del carrusel
+  catalogo.html       catálogo de Central One con costos: NO se publica (netlify.toml
+                      lo bloquea); ábrelo desde la carpeta
+  cobertura.json      datos de cobertura de Central One (bloqueado igual)
+  404.html            página de "no existe"
+  robots.txt          instrucciones para Google (el sitemap lo arma la función sitemap)
+  favicon.ico         ícono de la pestaña (más assets/icon-192.png, apple-touch-icon.png)
+assets/               logos, QR de pago, videos del carrusel y og-image.jpg
+                      (vista previa al compartir el link)
 css/style.css         estilos de todo el sitio
 js/                   lógica de cada página
   firebase-config.js  conexión a Firebase (proyecto "gamecenternuevo")

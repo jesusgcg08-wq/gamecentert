@@ -171,7 +171,7 @@ async function boot() {
     return renderNotFound();
   }
 
-  document.title = `${product.name} — GameCenter`;
+  ponerDatosParaGoogle();
 
   const optParam = params.get("opt");
   const entries = sortedOptionEntries();
@@ -186,8 +186,28 @@ async function boot() {
   window.gcLoaderListo?.(); // producto en pantalla: quitar el logo girando
 }
 
+// Titulo, descripcion y enlace canonico del producto (lo que Google muestra en
+// los resultados). Google ejecuta el JS de la pagina, asi que los lee de aqui.
+function ponerDatosParaGoogle() {
+  const nombre = product.name || "Producto";
+  document.title = `${nombre} en Venezuela al instante | GameCenter`;
+  const texto = String(product.description || "").replace(/\s+/g, " ").trim();
+  const desc = texto
+    ? `${texto.slice(0, 120)}${texto.length > 120 ? "…" : ""} Paga con Pago Móvil o Binance. Entrega inmediata en toda Venezuela.`
+    : `Compra ${nombre} con entrega inmediata en GameCenter. Paga con Pago Móvil o Binance. Desde Carora para toda Venezuela.`;
+  document.querySelector('meta[name="description"]')?.setAttribute("content", desc);
+  document
+    .getElementById("canonicalUrl")
+    ?.setAttribute("href", `https://gamecentervzla.com/producto.html?id=${encodeURIComponent(product._id)}`);
+}
+
 function renderNotFound() {
   window.gcLoaderListo?.();
+  // Producto que no existe: que Google no lo guarde
+  const robots = document.createElement("meta");
+  robots.name = "robots";
+  robots.content = "noindex";
+  document.head.appendChild(robots);
   $("productInfo").innerHTML = "";
   $("stepper").style.display = "none";
   $("saleSummary").parentElement.style.display = "none";
