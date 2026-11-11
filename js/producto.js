@@ -383,7 +383,7 @@ async function verifyGameId() {
   }
 
   btn.disabled = true;
-  btn.innerHTML = `<span class="btn-spinner"></span> Verificando...`;
+  btn.innerHTML = `<img class="gc-btn-logo" src="assets/logo-gc-blanco.png" alt="" /> Verificando...`;
   msg.textContent = "";
   idVerified = false;
   // Logo girando encima de la pagina mientras se verifica (js/loader.js). Si la verificacion se
