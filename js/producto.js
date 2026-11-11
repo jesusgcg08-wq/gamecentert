@@ -822,10 +822,22 @@ function supportLink(text) {
   return `<a href="https://wa.me/${wa}?text=${encodeURIComponent(text)}" target="_blank" rel="noopener" class="btn btn-outline btn-full" style="margin-top:10px; display:flex; align-items:center; justify-content:center; gap:8px;">${WA_ICON} Contactar soporte por WhatsApp</a>`;
 }
 
+// Mientras se procesa el pago: logo GC chiquito girando en el boton y, debajo, el logo con su aro
+// y el aviso de no cerrar la pagina. Si hay un error, el mensaje de error reemplaza este aviso.
+function payLoaderHTML(texto) {
+  return `
+    <div class="gc-grid-loader gc-pay-loader" role="status">
+      <div class="gc-loader-logo gc-loader-logo--sm"><img src="assets/logo-gc-blanco.png" alt="" /></div>
+      <div class="gc-loader-text"><b>${texto}</b></div>
+      <small>No cierres ni recargues esta página.</small>
+    </div>`;
+}
 function setBuyBusy(label) {
   const btn = $("buyBtn");
   btn.disabled = true;
-  btn.innerHTML = `<span class="btn-spinner"></span> ${label}`;
+  btn.innerHTML = `<img class="gc-btn-logo" src="assets/logo-gc-blanco.png" alt="" /> ${label}`;
+  const box = $("payAlert");
+  if (box) box.innerHTML = payLoaderHTML(label.replace(/\.\.\.$/, "…").replace(/pago/, "tu pago"));
 }
 function setBuyIdle() {
   const btn = $("buyBtn");
@@ -1021,7 +1033,7 @@ async function buy() {
       return;
     }
 
-    alertBox.innerHTML = '<div class="alert alert-info">Procesando tu pago...</div>';
+    alertBox.innerHTML = payLoaderHTML("Procesando tu pago…");
 
     const unsubscribe = onSnapshot(
       doc(db, "pendingVerifications", entryData.pendingId),
