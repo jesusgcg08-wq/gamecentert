@@ -2392,3 +2392,105 @@ a.see-all { display: inline-flex; align-items: center; }
   .rv-rail .rv-card-home { flex-basis: min(82vw, 290px); }
 }
 a.see-all { white-space: nowrap; flex-shrink: 0; }
+
+/* ======================================================
+   Pantalla de carga: logo GameCenter girando
+   (se muestra al abrir cada pagina y se quita sola al terminar de cargar; ver js/loader.js)
+====================================================== */
+.gc-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background: radial-gradient(circle at 50% 42%, #151925 0%, var(--bg-base) 62%);
+  transition: opacity 0.45s ease, visibility 0.45s ease;
+}
+.gc-loader.gc-loader-hide { opacity: 0; visibility: hidden; pointer-events: none; }
+/* Logo girando encima de la pagina durante una accion (ej. verificar el ID): se ve la pagina detras */
+.gc-loader.gc-loader--accion {
+  background: rgba(10, 12, 16, 0.78);
+  -webkit-backdrop-filter: blur(4px);
+          backdrop-filter: blur(4px);
+  animation: gc-aparece 0.2s ease;
+}
+.gc-loader--accion .gc-loader-text { color: var(--text-primary); }
+@keyframes gc-aparece { from { opacity: 0; } }
+.gc-loader-logo {
+  position: relative;
+  width: 112px;
+  height: 112px;
+}
+/* Aro de color que gira alrededor del logo */
+.gc-loader-logo::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--accent-violet), var(--accent-teal), transparent 70%, var(--accent-violet));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  animation: gc-giro 1s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.55));
+}
+.gc-loader-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Logo sin fondo (assets/logo-gc-blanco.png): solo la GC blanca, con un brillo violeta suave */
+.gc-loader-logo img {
+  width: 68%;
+  height: 68%;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 0 14px rgba(139, 92, 246, 0.55));
+  animation: gc-giro 1.8s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
+}
+.gc-loader-text {
+  font-family: "Sora", "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  animation: gc-pulso 1.4s ease-in-out infinite;
+}
+.gc-loader-text b { color: var(--text-primary); font-weight: 700; }
+@keyframes gc-giro { to { transform: rotate(360deg); } }
+@keyframes gc-pulso { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+@media (max-width: 480px) {
+  .gc-loader-logo { width: 92px; height: 92px; }
+}
+/* Quien pidio menos movimiento en su telefono: el logo late en vez de girar */
+@media (prefers-reduced-motion: reduce) {
+  .gc-loader-logo img { animation: gc-pulso 1.6s ease-in-out infinite; }
+  .gc-loader-logo::before { animation-duration: 3s; }
+}
+
+/* Logo girando dentro del catalogo al cambiar de categoria (js/catalogo-completo.js) */
+.gc-grid-loader {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 240px;
+}
+.gc-loader-logo.gc-loader-logo--sm { width: 72px; height: 72px; }
+.gc-loader-logo.gc-loader-logo--sm::before { inset: -7px; }
+/* Categoria sin productos */
+.gc-grid-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 50px 20px;
+  border: 1px dashed var(--border-soft);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+}
+.gc-grid-empty img { width: 54px; height: 54px; opacity: 0.35; margin-bottom: 10px; }
+.gc-grid-empty h3 { color: var(--text-primary); font-family: "Sora", "Inter", sans-serif; margin: 0 0 6px; font-size: 1.05rem; }
+.gc-grid-empty p { margin: 0; font-size: 0.9rem; }

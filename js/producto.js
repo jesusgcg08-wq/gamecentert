@@ -183,9 +183,11 @@ async function boot() {
   }
 
   renderAll();
+  window.gcLoaderListo?.(); // producto en pantalla: quitar el logo girando
 }
 
 function renderNotFound() {
+  window.gcLoaderListo?.();
   $("productInfo").innerHTML = "";
   $("stepper").style.display = "none";
   $("saleSummary").parentElement.style.display = "none";
@@ -384,10 +386,16 @@ async function verifyGameId() {
   btn.innerHTML = `<span class="btn-spinner"></span> Verificando...`;
   msg.textContent = "";
   idVerified = false;
+  // Logo girando encima de la pagina mientras se verifica (js/loader.js). Si la verificacion se
+  // queda trabada, se corta a los 25 s para que el cliente no quede esperando para siempre.
+  const quitarCarga = window.gcCargando?.("Verificando tu ID…");
+  const corte = new AbortController();
+  const tiempoMax = setTimeout(() => corte.abort(), 25000);
 
   try {
     const res = await fetch("/.netlify/functions/validate-player", {
       method: "POST",
+      signal: corte.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sub_category_id: subCategoryId,
@@ -416,6 +424,9 @@ async function verifyGameId() {
     console.error(err);
     msg.textContent = "No se pudo verificar, intenta de nuevo.";
     msg.className = "inline-msg err";
+  } finally {
+    clearTimeout(tiempoMax);
+    quitarCarga?.();
   }
   updateDatosCta();
 }

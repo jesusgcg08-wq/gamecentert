@@ -99,11 +99,30 @@ function render() {
     .join("");
 }
 
-chipsBox.addEventListener("click", (e) => {
+// Al tocar una categoria: logo girando mientras se vuelven a pedir los productos
+// (asi siempre se ve lo mas reciente). Minimo 0,5 s para que se alcance a ver.
+let chipToken = 0;
+chipsBox.addEventListener("click", async (e) => {
   const chip = e.target.closest(".cat-chip");
-  if (!chip) return;
+  if (!chip || chip.classList.contains("active")) return;
   activeCat = chip.dataset.cat;
-  render();
+  chipsBox.querySelectorAll(".cat-chip").forEach((c) => c.classList.toggle("active", c === chip));
+  const token = ++chipToken;
+  const nombre = chip.childNodes[0]?.textContent?.trim() || "productos";
+  content.innerHTML = `
+    <div class="gc-grid-loader" role="status">
+      <div class="gc-loader-logo gc-loader-logo--sm"><img src="assets/logo-gc-blanco.png" alt="" /></div>
+      <div class="gc-loader-text">Cargando <b>${esc(nombre)}</b>…</div>
+    </div>`;
+  const minimo = new Promise((r) => setTimeout(r, 500));
+  try {
+    const [snap] = await Promise.all([getDocs(query(collection(db, "products"), where("active", "==", true))), minimo]);
+    allProducts = snap.docs.map((d) => ({ _id: d.id, ...d.data() }));
+  } catch (err) {
+    console.error("No se pudo actualizar el catalogo; se muestra el que ya estaba cargado", err);
+    await minimo;
+  }
+  if (token === chipToken) render(); // si tocaron otra categoria mientras cargaba, gana la ultima
 });
 
 window.addEventListener("gc-search", (e) => {
@@ -120,6 +139,7 @@ async function load() {
     console.error("No se pudo cargar el catalogo", err);
     content.innerHTML = `<div class="empty-state">No se pudo cargar el catalogo. Recarga la pagina.</div>`;
   }
+  window.gcLoaderListo?.(); // catalogo en pantalla: quitar el logo girando
   // Boton flotante de WhatsApp (mismo numero configurado en el admin)
   try {
     const s = await getDoc(doc(db, "settings", "main"));

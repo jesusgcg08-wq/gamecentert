@@ -9,6 +9,13 @@
 <script type="module" src="js/maintenance-guard.js"></script>
 </head>
 <body>
+<!-- Pantalla de carga: logo girando (se quita sola, ver js/loader.js) -->
+<div class="gc-loader" id="gcLoader" role="status" aria-label="Cargando" data-esperar="app">
+  <div class="gc-loader-logo"><img src="assets/logo-gc-blanco.png" alt="GameCenter" /></div>
+  <div class="gc-loader-text"><b>GameCenter</b> · Cargando…</div>
+</div>
+<script src="js/loader.js"></script>
+
 
 <nav class="navbar">
   <div class="navbar-inner">

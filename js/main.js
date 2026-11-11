@@ -151,6 +151,9 @@ async function loadProducts() {
   } catch (err) {
     console.error("No se pudo cargar el catalogo", err);
     document.getElementById("homeSections").innerHTML = `<div class="empty-state">No se pudo cargar el catalogo. Recarga la pagina.</div>`;
+  } finally {
+    // Quita la pantalla de carga (logo girando) cuando el catalogo ya esta en pantalla (o si fallo).
+    window.gcLoaderListo?.();
   }
 }
 
