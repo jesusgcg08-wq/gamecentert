@@ -678,7 +678,7 @@ a { color: inherit; text-decoration: none; }
   text-align: center;
   gap: 6px;
 }
-.footer-logo { width: 68px; height: 68px; border-radius: 18px; object-fit: cover; margin-bottom: 8px; }
+.footer-logo { width: 60px; height: 60px; object-fit: contain; margin-bottom: 10px; filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.35)); }
 .footer-support { font-size: 0.95rem; color: var(--text-muted); }
 .footer-link {
   color: var(--accent-teal);
