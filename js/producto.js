@@ -386,9 +386,8 @@ async function verifyGameId() {
   btn.innerHTML = `<img class="gc-btn-logo" src="assets/logo-gc-blanco.png" alt="" /> Verificando...`;
   msg.textContent = "";
   idVerified = false;
-  // Logo girando encima de la pagina mientras se verifica (js/loader.js). Si la verificacion se
-  // queda trabada, se corta a los 25 s para que el cliente no quede esperando para siempre.
-  const quitarCarga = window.gcCargando?.("Verificando tu ID…");
+  // Mientras verifica, el boton muestra el logo girando. Si la verificacion se queda trabada,
+  // se corta a los 25 s para que el cliente no quede esperando para siempre.
   const corte = new AbortController();
   const tiempoMax = setTimeout(() => corte.abort(), 25000);
 
@@ -426,7 +425,6 @@ async function verifyGameId() {
     msg.className = "inline-msg err";
   } finally {
     clearTimeout(tiempoMax);
-    quitarCarga?.();
   }
   updateDatosCta();
 }
