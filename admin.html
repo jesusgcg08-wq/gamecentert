@@ -245,6 +245,20 @@
         <button class="btn btn-primary" id="carSaveBtn">Guardar carrusel</button>
         <a href="index.html" target="_blank" rel="noopener" class="maint-preview-link" style="margin-top:0;">Ver el inicio</a>
       </div>
+
+      <div class="card-form" style="margin-top:30px;">
+        <h3 style="margin-bottom:6px;">Título de la sección de ofertas</h3>
+        <p style="color:var(--text-muted); font-size:0.82rem; margin-bottom:14px;">
+          La última palabra sale con el degradado violeta y turquesa. Si lo dejas vacío dice "Descuentos de la semana".
+          Los productos de esa sección salen solos: los que tienen "Precio anterior (oferta)" en Productos.
+        </p>
+        <div class="field" style="max-width:420px;">
+          <label>Título</label>
+          <input type="text" id="dealsTitleInput" maxlength="40" placeholder="Ej: Oferta flash de la semana" />
+        </div>
+        <div id="dealsTitleAlert"></div>
+        <button class="btn btn-primary" id="dealsTitleSaveBtn">Guardar título</button>
+      </div>
     </section>
 
     <!-- CONFIGURACION -->

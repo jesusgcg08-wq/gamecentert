@@ -289,6 +289,16 @@ function dealsRailHtml() {
     .join("");
 }
 
+// Titulo de la seccion de ofertas: se edita en el panel (settings/main.dealsTitle).
+// La ultima palabra sale con el degradado de la marca.
+function dealsTitleHtml() {
+  const texto = String(publicSettings?.dealsTitle || "").trim() || "Descuentos de la semana";
+  const palabras = texto.split(/\s+/);
+  const ultima = palabras.pop();
+  const resto = palabras.join(" ");
+  return `${resto ? `<span>${esc(resto)}</span> ` : ""}<span class="deal-word">${esc(ultima)}</span>`;
+}
+
 function renderHome() {
   const box = document.getElementById("homeSections");
   if (!box) return;
@@ -300,7 +310,7 @@ function renderHome() {
     parts.push(`
       <section class="home-section" id="sec-deals">
         <div class="home-section-head">
-          <h2 class="home-title" style="--bar:var(--cta-grad)"><span>Descuentos de la</span> <span class="deal-word">semana</span><span class="bolt">${BOLT}</span></h2>
+          <h2 class="home-title" style="--bar:var(--cta-grad)">${dealsTitleHtml()}<span class="bolt">${BOLT}</span></h2>
           <div class="home-actions">
             <button type="button" class="rail-arrow" data-dir="-1" aria-label="Anterior">${ARROW_L}</button>
             <button type="button" class="rail-arrow" data-dir="1" aria-label="Siguiente">${ARROW_R}</button>

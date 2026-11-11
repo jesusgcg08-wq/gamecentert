@@ -929,6 +929,8 @@ async function loadCarrusel() {
   try {
     const snap = await getDoc(doc(db, "settings", "main"));
     carSlides = savedHeroSlides(snap.exists() ? snap.data() : null);
+    const titulo = document.getElementById("dealsTitleInput");
+    if (titulo) titulo.value = (snap.exists() && snap.data().dealsTitle) || "";
     carFotosGuardadas = new Set(carSlides.map((s) => s.photoId).filter(Boolean));
     if (!allProductsAdmin.length) {
       const ps = await getDocs(collection(db, "products"));
@@ -1025,6 +1027,24 @@ document.getElementById("carList")?.addEventListener("click", (e) => {
     if (!confirm("¿Quitar este slide del carrusel? Se borra al guardar.")) return;
     carSlides.splice(i, 1);
     renderCarrusel();
+  }
+});
+
+// Titulo de la seccion de ofertas del inicio (settings/main.dealsTitle)
+document.getElementById("dealsTitleSaveBtn")?.addEventListener("click", async () => {
+  const alertBox = document.getElementById("dealsTitleAlert");
+  const btn = document.getElementById("dealsTitleSaveBtn");
+  const valor = document.getElementById("dealsTitleInput").value.replace(/\s+/g, " ").trim().slice(0, 40);
+  alertBox.innerHTML = "";
+  btn.disabled = true;
+  try {
+    await setDoc(doc(db, "settings", "main"), { dealsTitle: valor }, { merge: true });
+    alertBox.innerHTML = `<div class="alert alert-success">Título guardado${valor ? "" : ' (vuelve a "Descuentos de la semana")'}.</div>`;
+  } catch (err) {
+    console.error(err);
+    alertBox.innerHTML = '<div class="alert alert-error">No se pudo guardar el título</div>';
+  } finally {
+    btn.disabled = false;
   }
 });
 
