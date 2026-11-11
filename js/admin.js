@@ -28,6 +28,7 @@
 
 import { auth, db } from "./firebase-config.js";
 import { icon } from "./icons.js";
+import { savedHeroSlides, isVideo } from "./hero-slides.js";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -125,6 +126,7 @@ onAuthStateChanged(auth, async (user) => {
     loadOrders();
     loadSettings();
     loadMaintenance();
+    loadCarrusel();
   }
 });
 
@@ -901,6 +903,254 @@ document.getElementById("saveMaintBtn")?.addEventListener("click", async () => {
   } catch (err) {
     console.error(err);
     alertBox.innerHTML = '<div class="alert alert-error">No se pudo guardar el mantenimiento</div>';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ============================================================================
+// CARRUSEL DEL INICIO
+// Los slides se guardan en settings/main.heroSlides (ver js/hero-slides.js).
+// Las fotos se achican aqui mismo (JPEG, maximo 1600 px) y se suben con la
+// funcion carrusel-subir, que las guarda en Firestore con permisos de servidor.
+// ============================================================================
+let carSlides = [];
+let carFotosGuardadas = new Set(); // fotos que ya estaban guardadas al abrir
+let carFotosSubidas = new Set(); // fotos subidas en esta visita (aun sin guardar)
+let carDestino = -1; // -1 = foto nueva; si no, el indice del slide al que se le cambia la foto
+
+const carEsc = (v) =>
+  String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+async function loadCarrusel() {
+  const list = document.getElementById("carList");
+  if (!list) return;
+  list.innerHTML = `<p style="color:var(--text-muted);">Cargando...</p>`;
+  try {
+    const snap = await getDoc(doc(db, "settings", "main"));
+    carSlides = savedHeroSlides(snap.exists() ? snap.data() : null);
+    carFotosGuardadas = new Set(carSlides.map((s) => s.photoId).filter(Boolean));
+    if (!allProductsAdmin.length) {
+      const ps = await getDocs(collection(db, "products"));
+      allProductsAdmin = ps.docs.map((d) => ({ _id: d.id, ...d.data() }));
+    }
+    renderCarrusel();
+  } catch (err) {
+    console.error(err);
+    list.innerHTML = `<div class="alert alert-error">No se pudo cargar el carrusel.</div>`;
+  }
+}
+
+function carProductOptions(s) {
+  const auto = Array.isArray(s.find) && s.find.length ? "Automático (busca por nombre)" : "Catálogo completo";
+  const productos = [...allProductsAdmin].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  return (
+    `<option value="">${auto}</option>` +
+    productos
+      .map((p) => `<option value="${carEsc(p._id)}" ${p._id === s.productId ? "selected" : ""}>${carEsc(p.name)}${p.active === false ? " (oculto)" : ""}</option>`)
+      .join("")
+  );
+}
+
+function renderCarrusel() {
+  const list = document.getElementById("carList");
+  if (!carSlides.length) {
+    list.innerHTML = `<div class="car-empty">No hay fotos. Mientras no agregues ninguna, el inicio muestra los 4 videos de fábrica.</div>`;
+    return;
+  }
+  list.innerHTML = carSlides
+    .map((s, i) => {
+      const video = isVideo(s.src);
+      const thumb = video ? s.poster : s.src;
+      return `
+      <div class="car-item${s.active === false ? " is-off" : ""}" data-i="${i}">
+        <div class="car-thumb">
+          ${thumb ? `<img src="${carEsc(thumb)}" alt="" />` : ""}
+          <span class="car-kind">${video ? "Video" : "Foto"} ${i + 1}</span>
+        </div>
+        <div class="car-fields">
+          <div class="field-row">
+            <div class="field"><label>Juego (texto pequeño)</label><input type="text" data-k="game" value="${carEsc(s.game)}" maxlength="40" placeholder="Ej: Free Fire" /></div>
+            <div class="field"><label>Frase grande</label><input type="text" data-k="title" value="${carEsc(s.title)}" maxlength="60" placeholder="Ej: Diamantes en segundos" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Texto del botón (vacío = sin botón)</label><input type="text" data-k="button" value="${carEsc(s.button)}" maxlength="24" placeholder="Ej: Recargar ahora" /></div>
+            <div class="field"><label>Lleva al producto</label><select data-k="productId">${carProductOptions(s)}</select></div>
+          </div>
+          <div class="car-actions">
+            <label class="car-show"><input type="checkbox" data-k="active" ${s.active === false ? "" : "checked"} /> Mostrar</label>
+            <button type="button" class="btn btn-outline btn-sm" data-car="foto">${video ? "Cambiar por foto" : "Cambiar foto"}</button>
+            <button type="button" class="btn btn-outline btn-sm" data-car="subir" ${i === 0 ? "disabled" : ""} aria-label="Subir">↑</button>
+            <button type="button" class="btn btn-outline btn-sm" data-car="bajar" ${i === carSlides.length - 1 ? "disabled" : ""} aria-label="Bajar">↓</button>
+            <button type="button" class="btn btn-danger btn-sm" data-car="quitar">Quitar</button>
+          </div>
+        </div>
+      </div>`;
+    })
+    .join("");
+}
+
+// Cambios en los textos, el producto y "Mostrar"
+function carCampoCambiado(e) {
+  const item = e.target.closest(".car-item");
+  const k = e.target.dataset.k;
+  if (!item || !k) return;
+  const s = carSlides[Number(item.dataset.i)];
+  if (k === "active") {
+    s.active = e.target.checked;
+    item.classList.toggle("is-off", !s.active);
+  } else {
+    s[k] = e.target.value;
+  }
+}
+document.getElementById("carList")?.addEventListener("input", carCampoCambiado);
+document.getElementById("carList")?.addEventListener("change", carCampoCambiado);
+
+// Botones de cada slide
+document.getElementById("carList")?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-car]");
+  if (!btn) return;
+  const i = Number(btn.closest(".car-item").dataset.i);
+  const accion = btn.dataset.car;
+  if (accion === "foto") {
+    carDestino = i;
+    document.getElementById("carFileInput").click();
+  } else if (accion === "subir" && i > 0) {
+    [carSlides[i - 1], carSlides[i]] = [carSlides[i], carSlides[i - 1]];
+    renderCarrusel();
+  } else if (accion === "bajar" && i < carSlides.length - 1) {
+    [carSlides[i + 1], carSlides[i]] = [carSlides[i], carSlides[i + 1]];
+    renderCarrusel();
+  } else if (accion === "quitar") {
+    if (!confirm("¿Quitar este slide del carrusel? Se borra al guardar.")) return;
+    carSlides.splice(i, 1);
+    renderCarrusel();
+  }
+});
+
+document.getElementById("carAddBtn")?.addEventListener("click", () => {
+  carDestino = -1;
+  document.getElementById("carFileInput").click();
+});
+
+// Achica la foto en el navegador: JPEG de maximo 1600 px de lado y menos de ~850 KB
+async function carAchicarFoto(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = () => reject(new Error("No se pudo leer la imagen"));
+      im.src = url;
+    });
+    const escala = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.naturalWidth * escala);
+    canvas.height = Math.round(img.naturalHeight * escala);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#0b0d12"; // fondo para PNG con transparencia
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    let blob = null;
+    for (const calidad of [0.85, 0.75, 0.65, 0.55]) {
+      blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", calidad));
+      if (blob && blob.size <= 850 * 1024) break;
+    }
+    if (!blob) throw new Error("No se pudo convertir la imagen");
+    const base64 = await new Promise((resolve) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result).split(",")[1]);
+      fr.readAsDataURL(blob);
+    });
+    return { base64, ancho: canvas.width, alto: canvas.height };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function carLlamarFuncion(body) {
+  const idToken = await auth.currentUser.getIdToken();
+  const res = await fetch("/.netlify/functions/carrusel-subir", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify(body),
+  });
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    // La funcion no existe aqui (ej. pagina abierta en la computadora, sin Netlify)
+  }
+  if (!res.ok || !data?.success) {
+    throw new Error(data?.message || "Las fotos solo se pueden subir desde la página publicada (gamecentervzla.com).");
+  }
+  return data;
+}
+
+document.getElementById("carFileInput")?.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+  const alertBox = document.getElementById("carAlert");
+  const addBtn = document.getElementById("carAddBtn");
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+    alertBox.innerHTML = '<div class="alert alert-error">Usa una foto JPG, PNG o WEBP.</div>';
+    return;
+  }
+  alertBox.innerHTML = '<div class="alert alert-info">Subiendo foto...</div>';
+  addBtn.disabled = true;
+  try {
+    const { base64, ancho, alto } = await carAchicarFoto(file);
+    const data = await carLlamarFuncion({ accion: "subir", tipo: "image/jpeg", datos: base64 });
+    carFotosSubidas.add(data.id);
+    if (carDestino >= 0 && carSlides[carDestino]) {
+      Object.assign(carSlides[carDestino], { src: data.url, poster: "", photoId: data.id });
+    } else {
+      carSlides.push({ src: data.url, poster: "", photoId: data.id, game: "", title: "", button: "", productId: "", active: true });
+    }
+    renderCarrusel();
+    const aviso = ancho < alto ? " Ojo: la foto es vertical y en el carrusel se va a recortar mucho. Mejor usa una horizontal." : "";
+    alertBox.innerHTML = `<div class="alert alert-success">Foto lista. Recuerda tocar <b>Guardar carrusel</b>.${aviso}</div>`;
+  } catch (err) {
+    console.error(err);
+    alertBox.innerHTML = `<div class="alert alert-error">${carEsc(err.message || "No se pudo subir la foto")}</div>`;
+  } finally {
+    addBtn.disabled = false;
+  }
+});
+
+document.getElementById("carSaveBtn")?.addEventListener("click", async () => {
+  const alertBox = document.getElementById("carAlert");
+  const btn = document.getElementById("carSaveBtn");
+  alertBox.innerHTML = "";
+  btn.disabled = true;
+  // Solo los campos que usa el inicio (Firestore no acepta valores undefined)
+  const limpios = carSlides.map((s) => {
+    const out = {
+      src: s.src || "",
+      poster: s.poster || "",
+      photoId: s.photoId || "",
+      game: (s.game || "").trim(),
+      title: (s.title || "").trim(),
+      button: (s.button || "").trim(),
+      productId: s.productId || "",
+      active: s.active !== false,
+    };
+    if (Array.isArray(s.find) && s.find.length) out.find = s.find;
+    return out;
+  });
+  try {
+    await setDoc(doc(db, "settings", "main"), { heroSlides: limpios }, { merge: true });
+    // Borra del servidor las fotos que ya no usa ningun slide
+    const enUso = new Set(limpios.map((s) => s.photoId).filter(Boolean));
+    const sobran = [...carFotosGuardadas, ...carFotosSubidas].filter((id) => !enUso.has(id));
+    await Promise.all(sobran.map((id) => carLlamarFuncion({ accion: "borrar", id }).catch((err) => console.warn("No se pudo borrar la foto", id, err))));
+    carFotosGuardadas = enUso;
+    carFotosSubidas = new Set();
+    alertBox.innerHTML = '<div class="alert alert-success">Carrusel guardado. Ya se ve en el inicio.</div>';
+  } catch (err) {
+    console.error(err);
+    alertBox.innerHTML = '<div class="alert alert-error">No se pudo guardar el carrusel</div>';
   } finally {
     btn.disabled = false;
   }

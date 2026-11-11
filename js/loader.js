@@ -29,16 +29,14 @@
 
   var el = document.getElementById("gcLoader");
   if (!el) { window.gcLoaderListo = function () {}; return; }
-  var inicio = Date.now(), listo = false;
+  var listo = false;
   function quitar() {
     if (listo) return;
     listo = true;
-    // Minimo 0,6 s en pantalla para que no "parpadee" cuando todo carga muy rapido.
-    var espera = Math.max(0, 600 - (Date.now() - inicio));
-    setTimeout(function () {
-      el.classList.add("gc-loader-hide");
-      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 500);
-    }, espera);
+    // Se quita apenas la pagina esta lista (sin espera minima): con una salida corta
+    // se ve como una entrada suave de la pagina y no hace esperar al cliente.
+    el.classList.add("gc-loader-hide");
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 300);
   }
   window.gcLoaderListo = quitar;
   if (el.getAttribute("data-esperar") !== "app") {

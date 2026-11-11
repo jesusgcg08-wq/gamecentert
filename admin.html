@@ -11,7 +11,7 @@
 <!-- Pantalla de carga: logo girando (se quita sola, ver js/loader.js) -->
 <div class="gc-loader" id="gcLoader" role="status" aria-label="Cargando">
   <div class="gc-loader-logo"><img src="assets/logo-gc-blanco.png" alt="GameCenter" /></div>
-  <div class="gc-loader-text"><b>GameCenter</b> · Cargando…</div>
+  <div class="gc-loader-text">Cargando…</div>
 </div>
 <script src="js/loader.js"></script>
 
@@ -44,6 +44,7 @@
     <div class="admin-nav-item" data-panel="cupones">Cupones</div>
     <div class="admin-nav-item" data-panel="resenas">Reseñas</div>
     <div class="admin-nav-item" data-panel="pedidos">Pedidos</div>
+    <div class="admin-nav-item" data-panel="carrusel">Carrusel</div>
     <div class="admin-nav-item" data-panel="config">Configuracion</div>
     <div class="admin-nav-item" data-panel="mantenimiento">Mantenimiento</div>
     <div class="admin-nav-item" id="adminLogout" style="margin-top:20px; color:var(--danger);">Cerrar sesion</div>
@@ -223,6 +224,26 @@
         <thead><tr><th>Cliente</th><th>Producto</th><th>ID del jugador</th><th>Pago</th><th>Comprobante</th><th>Total</th><th>Estado</th></tr></thead>
         <tbody id="ordersTableBody"></tbody>
       </table>
+      </div>
+    </section>
+
+    <!-- CARRUSEL (slides del inicio: js/admin.js + js/hero-slides.js) -->
+    <section class="admin-panel" id="panel-carrusel">
+      <div class="panel-header">
+        <h2 class="section-title">Carrusel del inicio</h2>
+        <button class="btn btn-primary btn-sm" id="carAddBtn">+ Agregar foto</button>
+      </div>
+      <p style="color:var(--text-muted); font-size:0.85rem; margin-top:-10px; max-width:760px;">
+        Sube fotos horizontales, idealmente de <b>1920 × 1080</b>. En computadora se ve la franja del medio
+        de la foto, así que deja lo importante en el centro. Si la foto ya trae su propio texto (por ejemplo un flyer de Canva),
+        deja vacíos los textos: tocar la foto llevará al producto que elijas.
+      </p>
+      <input type="file" id="carFileInput" accept="image/jpeg,image/png,image/webp" style="display:none;" />
+      <div id="carList" class="car-list"></div>
+      <div id="carAlert"></div>
+      <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">
+        <button class="btn btn-primary" id="carSaveBtn">Guardar carrusel</button>
+        <a href="index.html" target="_blank" rel="noopener" class="maint-preview-link" style="margin-top:0;">Ver el inicio</a>
       </div>
     </section>
 

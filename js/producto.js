@@ -364,6 +364,17 @@ function updateDatosCta() {
   btn.disabled = !datosComplete();
 }
 
+// ID malo: el campo se sacude y queda con borde rojo hasta que el cliente lo corrija
+function sacudirCamposId() {
+  ["playerIdInput", "zoneIdInput"].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.classList.remove("is-wrong");
+    void el.offsetWidth; // reinicia la animacion si falla dos veces seguidas
+    el.classList.add("is-wrong");
+  });
+}
+
 async function verifyGameId() {
   const msg = $("datosMsg");
   const btn = $("datosBtn");
@@ -383,6 +394,7 @@ async function verifyGameId() {
   }
 
   btn.disabled = true;
+  btn.classList.add("is-verifying");
   btn.innerHTML = `<img class="gc-btn-logo" src="assets/logo-gc-blanco.png" alt="" /> Verificando...`;
   msg.textContent = "";
   idVerified = false;
@@ -412,6 +424,8 @@ async function verifyGameId() {
       saveLast();
       renderDatos();
       renderSummary();
+      // Cuenta encontrada: la tarjeta verde entra con un rebote y el escudo con el check salta
+      document.querySelector(".found-card")?.classList.add("is-new");
       return;
     }
 
@@ -419,12 +433,15 @@ async function verifyGameId() {
     const apiMessage = errorMessages[data.error?.code] || data.message || data.error?.message || data.error;
     msg.textContent = `${typeof apiMessage === "string" ? apiMessage : "ID no valido, revisa el numero."}`;
     msg.className = "inline-msg err";
+    sacudirCamposId();
   } catch (err) {
     console.error(err);
     msg.textContent = "No se pudo verificar, intenta de nuevo.";
     msg.className = "inline-msg err";
+    sacudirCamposId();
   } finally {
     clearTimeout(tiempoMax);
+    btn.classList.remove("is-verifying");
   }
   updateDatosCta();
 }
@@ -753,6 +770,7 @@ main.addEventListener("input", (e) => {
     case "playerIdInput":
       playerId = e.target.value;
       idVerified = false;
+      e.target.classList.remove("is-wrong");
       $("datosMsg").textContent = "";
       updateDatosCta();
       renderSummary();
@@ -760,6 +778,7 @@ main.addEventListener("input", (e) => {
     case "zoneIdInput":
       zoneId = e.target.value;
       idVerified = false;
+      e.target.classList.remove("is-wrong");
       $("datosMsg").textContent = "";
       updateDatosCta();
       break;

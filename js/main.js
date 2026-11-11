@@ -11,6 +11,7 @@ import { db } from "./firebase-config.js";
 import { collection, query, where, orderBy, limit, getDocs, getCountFromServer, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 import { initAccountMenu, onAccountChange, getDisplayCurrency } from "./account-menu.js";
 import { esc, productDeals, maxDiscount, sortProducts, formatDisplay } from "./catalog-utils.js";
+import { visibleHeroSlides, isVideo } from "./hero-slides.js";
 
 // ============ Sesion (la maneja account-menu.js) ============
 let currentProfile = null;
@@ -38,36 +39,70 @@ function showWelcomeToast() {
 }
 
 // ============ Carrusel principal ============
-const HERO_FILES = ["hero1.mp4", "hero2.mp4", "hero3.mp4", "hero4.mp4"];
+// Los slides se editan desde el panel (seccion "Carrusel") y se guardan en
+// settings/main.heroSlides; ver js/hero-slides.js. Cada uno lleva foto o video,
+// juego, frase y un boton que lleva al producto elegido (o, en los de fabrica,
+// al producto que coincida por nombre). Si no encuentra el producto, va al catalogo.
+let heroSlides = [];
+// Con ahorro de datos o conexion lenta, el carrusel muestra solo fotos (sin videos)
+const AHORRO_DATOS = (() => {
+  const c = navigator.connection;
+  return !!(c && (c.saveData || /(^|-)2g$|^3g$/.test(c.effectiveType || "")));
+})();
 let heroIndex = 0;
 let heroTimer = null;
 
-function initHero() {
+function initHero(slides) {
   const hero = document.getElementById("hero");
   const track = document.getElementById("heroTrack");
   const dotsBox = document.getElementById("heroDots");
   if (!hero || !track) return;
+  heroSlides = slides;
+  if (!heroSlides.length) {
+    hero.style.display = "none";
+    return;
+  }
 
-  HERO_FILES.forEach((file, i) => {
+  heroSlides.forEach((s, i) => {
     const slide = document.createElement("div");
     slide.className = "hero-slide";
-    if (file.endsWith(".mp4")) {
+    if (isVideo(s.src) && !(AHORRO_DATOS && s.poster)) {
       const video = document.createElement("video");
-      // #t=0.1 hace que los slides en pausa muestren un fotograma
-      video.src = `assets/${file}#t=0.1`;
+      // El video solo se descarga cuando le toca (preload none); mientras, se ve la foto
+      video.src = s.src;
+      if (s.poster) video.poster = s.poster;
       video.muted = true;
       video.loop = true;
       video.playsInline = true;
-      video.preload = "metadata";
+      video.preload = "none";
       slide.appendChild(video);
     } else {
       const img = document.createElement("img");
-      img.src = `assets/${file}`;
-      img.alt = "GameCenter";
+      img.src = isVideo(s.src) ? s.poster : s.src;
+      img.alt = s.title || s.game || "GameCenter";
+      if (i > 0) img.loading = "lazy";
       slide.appendChild(img);
+    }
+    if (s.game || s.title || s.button) {
+      slide.classList.add("has-info");
+      const info = document.createElement("div");
+      info.className = "hero-info";
+      info.innerHTML = `
+        ${s.game ? `<span class="hero-game">${esc(s.game)}</span>` : ""}
+        ${s.title ? `<h2 class="hero-title">${esc(s.title)}</h2>` : ""}
+        ${s.button ? `<a class="hero-btn" href="catalogo-completo.html" data-hero="${i}">${esc(s.button)}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+        </a>` : ""}`;
+      // En un slide de los lados, el boton no navega: primero trae ese slide al centro
+      info.querySelector(".hero-btn")?.addEventListener("click", (e) => {
+        if (i !== heroIndex) e.preventDefault();
+      });
+      slide.appendChild(info);
     }
     slide.addEventListener("click", () => {
       if (i !== heroIndex) goToHeroSlide(i);
+      // Foto sin boton (ej. un flyer con su propio texto): tocarla lleva al producto
+      else if (!s.button && s._href) window.location.href = s._href;
     });
     track.appendChild(slide);
 
@@ -79,8 +114,12 @@ function initHero() {
     dotsBox.appendChild(dot);
   });
 
-  document.getElementById("heroPrev")?.addEventListener("click", () => goToHeroSlide((heroIndex - 1 + HERO_FILES.length) % HERO_FILES.length));
-  document.getElementById("heroNext")?.addEventListener("click", () => goToHeroSlide((heroIndex + 1) % HERO_FILES.length));
+  // Con un solo slide no hacen falta flechas ni puntos
+  if (heroSlides.length < 2) {
+    hero.classList.add("hero-single");
+  }
+  document.getElementById("heroPrev")?.addEventListener("click", () => goToHeroSlide((heroIndex - 1 + heroSlides.length) % heroSlides.length));
+  document.getElementById("heroNext")?.addEventListener("click", () => goToHeroSlide((heroIndex + 1) % heroSlides.length));
   window.addEventListener("resize", layoutHero);
 
   goToHeroSlide(0);
@@ -117,7 +156,8 @@ function goToHeroSlide(i) {
 
 function restartHeroTimer() {
   clearInterval(heroTimer);
-  heroTimer = setInterval(() => goToHeroSlide((heroIndex + 1) % HERO_FILES.length), 6500);
+  if (heroSlides.length < 2) return;
+  heroTimer = setInterval(() => goToHeroSlide((heroIndex + 1) % heroSlides.length), 6500);
 }
 
 // ============ Datos ============
@@ -141,11 +181,33 @@ async function ensurePublicSettings() {
   return publicSettings;
 }
 
+// Apunta el boton de cada slide a su producto: el elegido en el panel o, en los
+// slides de fabrica, el primero cuyo nombre coincida (prefiere la categoria "juegos").
+function linkHeroButtons() {
+  const juegos = sortProducts(allProducts.filter((p) => p.category === "juegos"));
+  const resto = sortProducts(allProducts.filter((p) => p.category !== "juegos"));
+  const ordenados = [...juegos, ...resto];
+  heroSlides.forEach((s, i) => {
+    let p = s.productId ? allProducts.find((x) => x._id === s.productId) : null;
+    if (!p && Array.isArray(s.find)) {
+      for (const term of s.find) {
+        p = ordenados.find((x) => (x.name || "").toLowerCase().includes(term));
+        if (p) break;
+      }
+    }
+    s._href = p ? `producto.html?id=${encodeURIComponent(p._id)}` : "";
+    const btn = document.querySelector(`.hero-btn[data-hero="${i}"]`);
+    if (btn && s._href) btn.href = s._href;
+  });
+}
+
 async function loadProducts() {
   try {
     await ensurePublicSettings();
+    initHero(visibleHeroSlides(publicSettings));
     const snap = await getDocs(query(collection(db, "products"), where("active", "==", true)));
     allProducts = snap.docs.map((d) => ({ _id: d.id, ...d.data() }));
+    linkHeroButtons();
     renderHome();
     applySearch();
   } catch (err) {
@@ -238,7 +300,7 @@ function renderHome() {
     parts.push(`
       <section class="home-section" id="sec-deals">
         <div class="home-section-head">
-          <h2 class="home-title" style="--bar:var(--deal)"><span>Descuentos de la</span> <span style="color:var(--deal)">semana</span><span class="bolt">${BOLT}</span></h2>
+          <h2 class="home-title" style="--bar:var(--cta-grad)"><span>Descuentos de la</span> <span class="deal-word">semana</span><span class="bolt">${BOLT}</span></h2>
           <div class="home-actions">
             <button type="button" class="rail-arrow" data-dir="-1" aria-label="Anterior">${ARROW_L}</button>
             <button type="button" class="rail-arrow" data-dir="1" aria-label="Siguiente">${ARROW_R}</button>
@@ -338,7 +400,7 @@ if (initialQ) {
 if (location.hash === "#juegos") setTimeout(() => document.getElementById("sec-juegos")?.scrollIntoView({ behavior: "smooth" }), 600);
 
 // ============ Init ============
-initHero();
+// El carrusel se arma en loadProducts(), apenas llega la configuracion (trae los slides del panel)
 ensurePublicSettings();
 // ============ Reseñas recientes en el inicio ============
 // Lee la coleccion "reviews" (la misma de resenas.html). Si falla o aun no hay
