@@ -15,6 +15,12 @@
   status = 200
   force = true
 
+# Paginas para Google con direccion limpia (sin .html)
+[[redirects]]
+  from = "/recargas-free-fire-venezuela"
+  to = "/recargas-free-fire-venezuela.html"
+  status = 200
+
 # ---- Archivos internos: no se publican (responden "no existe") ----
 # catalogo.html tiene precios de costo de Central One: abrelo desde la carpeta.
 [[redirects]]

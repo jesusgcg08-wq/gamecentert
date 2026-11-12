@@ -14,6 +14,7 @@ exports.handler = async function () {
   const urls = [
     { loc: `${SITIO}/`, prioridad: "1.0" },
     { loc: `${SITIO}/catalogo-completo.html`, prioridad: "0.9" },
+    { loc: `${SITIO}/recargas-free-fire-venezuela`, prioridad: "0.9" },
     { loc: `${SITIO}/resenas.html`, prioridad: "0.5" },
   ];
 
