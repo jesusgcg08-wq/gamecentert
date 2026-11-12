@@ -5,7 +5,8 @@
 
 const admin = require("./lib/firebase");
 const { verifyPabiloPayment } = require("./lib/pabilo");
-const { montoValido, saldoNumero, textoCorto, referenciaValida, pagoUsadoRef, dentroDelLimite } = require("./lib/seguridad");
+const { montoValido, textoCorto, referenciaValida, pagoUsadoRef, dentroDelLimite } = require("./lib/seguridad");
+const { leerSaldo, guardarSaldo } = require("./lib/wallet");
 
 const db = admin.firestore();
 
@@ -117,7 +118,7 @@ exports.handler = async function (event) {
       paymentProof: { last6: String(bankReference).trim(), payerPhone: String(payerPhone).trim() },
       pabiloReference: pabiloResult.reference || bankReference,
       pabiloAmountBs: pabiloResult.amount,
-      status: amountOk ? "completado" : "rechazado",
+      status: amountOk ? "acreditando" : "rechazado",
       adminNote: amountOk
         ? ""
         : `Monto insuficiente: el cliente pago Bs ${pabiloResult.amount.toFixed(2)} y el deposito solicitado era Bs ${expectedTotalBs.toFixed(2)}. Referencia verificada correctamente por Pabilo.`,
@@ -137,25 +138,28 @@ exports.handler = async function (event) {
     // simultaneos del mismo usuario no se pisen entre si. ----
     // En la MISMA transaccion se marca el pago como usado para siempre: si
     // ya se habia usado (en un pedido o en otro deposito), no se acredita.
-    const userRef = db.collection("users").doc(uid);
     const usadoRef = pagoUsadoRef(db, "pm", pabiloResult.reference || bankReference);
     let newBalanceUsd = amountUsd;
     try {
       await db.runTransaction(async (tx) => {
         const usadoSnap = await tx.get(usadoRef);
         if (usadoSnap.exists) throw new Error("PAGO_YA_USADO");
-        const userSnap = await tx.get(userRef);
-        const currentBalance = userSnap.exists ? saldoNumero(userSnap.data().walletBalanceUsd) : 0;
+        const { saldo: currentBalance, migracion } = await leerSaldo(tx, db, uid, { excluirDepositoId: depositRef.id });
         newBalanceUsd = Math.round((currentBalance + amountUsd) * 100) / 100;
         tx.create(usadoRef, { uid, type: "wallet_deposit", depositId: depositRef.id, usedAt: admin.firestore.FieldValue.serverTimestamp() });
-        tx.set(userRef, { walletBalanceUsd: newBalanceUsd }, { merge: true });
+        guardarSaldo(tx, db, uid, newBalanceUsd, migracion);
+        tx.update(depositRef, { status: "completado" });
       });
     } catch (err) {
       if (err.message === "PAGO_YA_USADO") {
         await depositRef.update({ status: "rechazado", adminNote: "Ese pago ya se habia usado antes. No se acredito saldo." });
         return fail(409, "Este comprobante ya fue verificado antes.");
       }
-      throw err;
+      console.error("[wallet-deposit] no se pudo acreditar:", err);
+      await depositRef
+        .update({ status: "rechazado", adminNote: "Pago verificado pero fallo al acreditar el saldo. Acreditar a mano.", requiresRefundReview: true })
+        .catch(() => {});
+      return fail(500, "Tu pago fue verificado pero no se pudo acreditar el saldo. Escribenos por WhatsApp con tu comprobante.");
     }
 
     return {

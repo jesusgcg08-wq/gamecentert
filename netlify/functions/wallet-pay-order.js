@@ -16,7 +16,8 @@
 
 const admin = require("./lib/firebase");
 const { createCentralOneOrder, triggerVoucherFollowup } = require("./lib/centralone");
-const { opcionReal, porcentajeCupon, saldoNumero, textoCorto } = require("./lib/seguridad");
+const { opcionReal, porcentajeCupon, textoCorto } = require("./lib/seguridad");
+const { leerSaldo, guardarSaldo } = require("./lib/wallet");
 
 const db = admin.firestore();
 
@@ -93,15 +94,9 @@ exports.handler = async function (event) {
 
   const totalUsd = Math.round(Number(option.priceUsd) * (1 - discountPercent / 100) * 100) / 100;
 
-  // ---- 4) Saldo real del cliente, siempre leido de Firestore (nunca del
-  // navegador). Solo lo confirmamos aqui; el descuento real se hace mas
-  // abajo, dentro de una transaccion, para que dos pagos simultaneos no se
-  // pisen entre si. ----
-  const userSnapCheck = await db.collection("users").doc(uid).get();
-  const currentBalance = userSnapCheck.exists ? saldoNumero(userSnapCheck.data().walletBalanceUsd) : 0;
-  if (currentBalance < totalUsd) {
-    return fail(400, "No tienes saldo suficiente en tu wallet para este pedido.");
-  }
+  // ---- 4) El saldo REAL se revisa abajo, dentro de la transaccion, en
+  // wallets/{uid} (ver lib/wallet.js). El numero del perfil del cliente NO
+  // cuenta: el cliente lo puede editar. ----
 
   const baseOrderData = {
     userId: uid,
@@ -139,21 +134,19 @@ exports.handler = async function (event) {
   // ---- Cobro: descuenta el saldo, crea el pedido y marca el cupon como
   // usado, TODO en una sola transaccion. Si dos pedidos llegan a la vez,
   // Firestore los pone en fila: el segundo ya ve el saldo descontado. ----
-  const userRef = db.collection("users").doc(uid);
   const orderRef = db.collection("orders").doc();
   const cuponRef = appliedCouponCode ? db.collection("couponRedemptions").doc(`${uid}_${appliedCouponCode}`) : null;
   let newBalanceUsd;
   try {
     await db.runTransaction(async (tx) => {
-      const userSnap = await tx.get(userRef);
+      const { saldo: balance, migracion } = await leerSaldo(tx, db, uid);
       const cuponSnap = cuponRef ? await tx.get(cuponRef) : null;
-      const balance = userSnap.exists ? saldoNumero(userSnap.data().walletBalanceUsd) : 0;
       if (balance < totalUsd) throw new Error("INSUFFICIENT_BALANCE");
       if (cuponSnap && cuponSnap.exists) throw new Error("COUPON_USED");
       newBalanceUsd = Math.round((balance - totalUsd) * 100) / 100;
 
       tx.set(orderRef, { ...baseOrderData, status: "en_proceso", walletCharged: true });
-      tx.set(userRef, { walletBalanceUsd: newBalanceUsd }, { merge: true });
+      guardarSaldo(tx, db, uid, newBalanceUsd, migracion);
       if (cuponRef) {
         tx.create(cuponRef, { uid, code: appliedCouponCode, usedAt: admin.firestore.FieldValue.serverTimestamp() });
       }
@@ -174,12 +167,11 @@ exports.handler = async function (event) {
   async function devolverSaldo(nota) {
     let saldoFinal = null;
     await db.runTransaction(async (tx) => {
-      const userSnap = await tx.get(userRef);
+      const { saldo: balance, migracion } = await leerSaldo(tx, db, uid);
       const orderSnap = await tx.get(orderRef);
       if (!orderSnap.exists || orderSnap.data().walletCharged !== true) return;
-      const balance = userSnap.exists ? saldoNumero(userSnap.data().walletBalanceUsd) : 0;
       saldoFinal = Math.round((balance + totalUsd) * 100) / 100;
-      tx.set(userRef, { walletBalanceUsd: saldoFinal }, { merge: true });
+      guardarSaldo(tx, db, uid, saldoFinal, migracion);
       tx.update(orderRef, { status: "rechazado", walletCharged: false, walletRefunded: true, adminNote: nota });
       if (cuponRef) tx.delete(cuponRef);
     });
