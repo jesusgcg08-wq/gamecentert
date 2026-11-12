@@ -15,6 +15,10 @@ exports.handler = async function () {
     { loc: `${SITIO}/`, prioridad: "1.0" },
     { loc: `${SITIO}/catalogo-completo.html`, prioridad: "0.9" },
     { loc: `${SITIO}/recargas-free-fire-venezuela`, prioridad: "0.9" },
+    { loc: `${SITIO}/recargas-call-of-duty-mobile-venezuela`, prioridad: "0.9" },
+    { loc: `${SITIO}/recargas-blood-strike-venezuela`, prioridad: "0.9" },
+    { loc: `${SITIO}/recargas-pubg-mobile-venezuela`, prioridad: "0.9" },
+    { loc: `${SITIO}/recargas-mobile-legends-venezuela`, prioridad: "0.9" },
     { loc: `${SITIO}/resenas.html`, prioridad: "0.5" },
   ];
 

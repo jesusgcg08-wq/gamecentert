@@ -21,6 +21,26 @@
   to = "/recargas-free-fire-venezuela.html"
   status = 200
 
+[[redirects]]
+  from = "/recargas-call-of-duty-mobile-venezuela"
+  to = "/recargas-call-of-duty-mobile-venezuela.html"
+  status = 200
+
+[[redirects]]
+  from = "/recargas-blood-strike-venezuela"
+  to = "/recargas-blood-strike-venezuela.html"
+  status = 200
+
+[[redirects]]
+  from = "/recargas-pubg-mobile-venezuela"
+  to = "/recargas-pubg-mobile-venezuela.html"
+  status = 200
+
+[[redirects]]
+  from = "/recargas-mobile-legends-venezuela"
+  to = "/recargas-mobile-legends-venezuela.html"
+  status = 200
+
 # ---- Archivos internos: no se publican (responden "no existe") ----
 # catalogo.html tiene precios de costo de Central One: abrelo desde la carpeta.
 [[redirects]]
