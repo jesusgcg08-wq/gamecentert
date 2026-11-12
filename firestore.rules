@@ -1,0 +1,180 @@
+rules_version = '2';
+
+// ============================================================================
+// GameCenter — Firestore Security Rules
+// Copia de las reglas publicadas en la consola de Firebase (proyecto
+// gamecenternuevo -> Firestore Database -> Reglas). Si cambias una, cambia
+// la otra. Los pedidos, pagos y saldos los escriben SOLO las funciones de
+// Netlify (firebase-admin), que no pasan por estas reglas.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Helpers ------------------------------------------------------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    function shortString(v, max) {
+      return v is string && v.size() <= max;
+    }
+
+    // ---- users/{uid} ----------------------------------------------------
+    // El cliente crea su perfil al registrarse y despues SOLO puede cambiar
+    // su telefono y su foto. Nunca su "role" ni "walletBalanceUsd" (el saldo
+    // real vive en wallets/{uid}, que solo toca el servidor).
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasAll(["name", "countryCode", "phone", "email", "role"])
+        && request.resource.data.keys().hasOnly(["name", "countryCode", "phone", "email", "role", "createdAt"])
+        && request.resource.data.role == "cliente"
+        && shortString(request.resource.data.name, 80)
+        && shortString(request.resource.data.countryCode, 8)
+        && shortString(request.resource.data.phone, 20)
+        && shortString(request.resource.data.email, 120);
+
+      allow update: if (isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["phone", "avatarUrl"])
+          && shortString(request.resource.data.get("phone", ""), 20)
+          && shortString(request.resource.data.get("avatarUrl", ""), 500))
+        || isAdmin();
+
+      allow delete: if false;
+    }
+
+    // ---- products/{productId} -------------------------------------------
+
+    match /products/{productId} {
+      allow read: if resource.data.active == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ---- coupons/{code} --------------------------------------------------
+
+    match /coupons/{code} {
+      allow get: if (resource.data.active == true) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ---- couponRedemptions/{uid}_{code} -----------------------------------
+    // Lo crea SOLO el servidor junto con el pedido. El cliente solo lo lee
+    // (para avisar en el checkout si ya uso el cupon).
+
+    match /couponRedemptions/{redemptionId} {
+      allow read: if isOwner(resource.data.uid) || isAdmin();
+      allow create, update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ---- orders/{orderId} -------------------------------------------------
+    // Los pedidos los crea SOLO el servidor, despues de verificar el pago
+    // (verify-pago-movil-order, verify-binance-pay-order, wallet-pay-order).
+    // Antes el cliente podia crear un pedido "recibido" con una referencia
+    // inventada, sin pasar por la verificacion.
+
+    match /orders/{orderId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+
+      allow create: if false;
+
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(["status", "adminNote", "shop2topupOrderId", "shop2topupStatus"])
+        && request.resource.data.status in
+             ["recibido", "en_proceso", "completado", "rechazado"];
+
+      allow delete: if isAdmin()
+        && (resource.data.status == "completado" || resource.data.status == "rechazado");
+    }
+
+    // ---- reviews/{orderId} -------------------------------------------------
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+             "userId", "userName", "userAvatar", "orderId", "productId",
+             "productName", "optionLabel", "productImage", "rating",
+             "comment", "createdAt"
+           ])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.orderId == reviewId
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1 && request.resource.data.rating <= 5
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() >= 5
+        && request.resource.data.comment.size() <= 400
+        && request.resource.data.userName is string
+        && request.resource.data.userName.size() <= 60
+        && get(/databases/$(database)/documents/orders/$(reviewId)).data.userId == request.auth.uid
+        && get(/databases/$(database)/documents/orders/$(reviewId)).data.status == "completado";
+
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ---- pendingVerifications/{id} -----------------------------------------
+
+    match /pendingVerifications/{id} {
+      allow read: if isOwner(resource.data.uid) || isAdmin();
+      allow write: if false;
+    }
+
+    // ---- walletDeposits/{depositId} -----------------------------------------
+
+    match /walletDeposits/{depositId} {
+      allow read: if isOwner(resource.data.uid) || isAdmin();
+      allow write: if false;
+    }
+
+    // ---- Solo servidor (firebase-admin) ------------------------------------
+    // wallets: saldo REAL de cada cliente. usedPayments: pagos ya usados.
+    // paymentVerificationLocks / rateLimits: candados y limites de intentos.
+    // passwordResetCodes: codigos de "olvide mi contraseña".
+    // carruselFotos: fotos del carrusel (las sirve una funcion publica).
+
+    match /wallets/{uid} {
+      allow read, write: if false;
+    }
+    match /usedPayments/{id} {
+      allow read, write: if false;
+    }
+    match /paymentVerificationLocks/{id} {
+      allow read, write: if false;
+    }
+    match /rateLimits/{id} {
+      allow read, write: if false;
+    }
+    match /passwordResetCodes/{email} {
+      allow read, write: if false;
+    }
+    match /carruselFotos/{id} {
+      allow read, write: if false;
+    }
+
+    // ---- settings/main -----------------------------------------------------
+
+    match /settings/main {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
